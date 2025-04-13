@@ -1,5 +1,6 @@
+// src/utils/generarRemito.js
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable"; // IMPORTA autoTable directamente
+import autoTable from "jspdf-autotable";
 import { formatearFechaHora } from "./Fecha";
 
 export function generarNumeroRemito() {
@@ -18,9 +19,9 @@ export default function generarRemitoPDF(
   const doc = new jsPDF();
 
   // Encabezado
-  doc.setFontSize(10);
+  doc.setFontSize(18);
   doc.text("Seguí Rodando", 14, 20);
-  doc.setFontSize(10);
+  doc.setFontSize(12);
   doc.text(`REMITO ${numeroRemito}`, 200 - 14, 20, { align: "right" });
   doc.line(14, 22, 200, 22);
 
@@ -54,12 +55,9 @@ export default function generarRemitoPDF(
     groups[cat][sub].push(item);
   });
 
-  // Construir las filas para la tabla
-  // Usaremos 6 columnas: Producto, Categoría, Subcategoría, Cantidad, Precio Unitario, Subtotal
   const bodyRows = [];
   Object.entries(groups).forEach(([cat, subGroups]) => {
     Object.entries(subGroups).forEach(([sub, items]) => {
-      // Fila de cabecera para el grupo
       bodyRows.push([
         {
           content: `Categoría: ${cat} - Subcategoría: ${sub}`,
@@ -67,7 +65,6 @@ export default function generarRemitoPDF(
           styles: { halign: 'left', fillColor: false, textColor: 0, fontStyle: 'bold' }
         }
       ]);
-      // Filas de cada producto en este grupo
       items.forEach((item) => {
         bodyRows.push([
           item.nombre,
@@ -81,26 +78,40 @@ export default function generarRemitoPDF(
     });
   });
 
-  // Generar la tabla con autoTable, sin relleno en los encabezados y con fuente de 8pt
   autoTable(doc, {
     startY: y,
-    head: [[ "Producto", "Categoría", "Subcategoría", "Cantidad", "Precio Unitario", "Subtotal" ]],
+    head: [["Producto", "Categoría", "Subcategoría", "Cantidad", "Precio Unitario", "Subtotal"]],
     body: bodyRows,
     theme: "grid",
     headStyles: { fillColor: false, textColor: 0, fontStyle: 'bold' },
-    styles: { fontSize: 5 },
+    styles: { fontSize: 3 },
   });
 
-  // Calcular el total
   const total = productosSeleccionados.reduce(
     (acc, item) => acc + parseFloat(item.precio || 0) * item.cantidad,
     0
   );
   const finalY = doc.lastAutoTable?.finalY || y + 10;
-  doc.setFontSize(8);
+  doc.setFontSize(3);
   doc.text(`TOTAL: $${total.toFixed(2)}`, 150, finalY + 10);
 
-  const yPie = finalY + 20;
+  // Leer descuento desde localStorage y aplicarlo
+  const discountStored = localStorage.getItem('descuento');
+  console.log("Valor descuento en remito:", discountStored); // Depuración
+  let discountApplied = 0;
+  if (discountStored) {
+    discountApplied = parseFloat(discountStored);
+    if (isNaN(discountApplied)) discountApplied = 0;
+  }
+  if (discountApplied > 0) {
+    const discountAmount = total * (discountApplied / 100);
+    const finalTotal = total - discountAmount;
+    // Ajustamos la posición de estas líneas
+    doc.text(`Descuento (${discountApplied}%): -$${discountAmount.toFixed(2)}`, 14, finalY + 20);
+    doc.text(`TOTAL FINAL: $${finalTotal.toFixed(2)}`, 14, finalY + 30);
+  }
+
+  const yPie = doc.lastAutoTable?.finalY || finalY + 40;
   doc.line(14, yPie + 10, 80, yPie + 10);
   doc.text("Firma del cliente", 14, yPie + 15);
 

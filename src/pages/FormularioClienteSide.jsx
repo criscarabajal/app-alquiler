@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TextField, Button, Typography } from '@mui/material';
 import ResponsiveLayout from '../components/ResponsiveLayout';
-import { fetchClientes, addClient } from '../utils/fetchClientes';
 
 export default function FormularioClienteSide() {
   const navigate = useNavigate();
@@ -11,6 +10,8 @@ export default function FormularioClienteSide() {
     nombre: '',
     apellido: '',
     dni: '',
+    telefono: '',
+    correo: '',
     atendidoPor: 'Matias',
     fechaRetiro: '',
     fechaDevolucion: '',
@@ -21,35 +22,11 @@ export default function FormularioClienteSide() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // Cuando se pierde el foco del campo DNI, se consulta si el cliente existe
-  const handleBlurDni = async () => {
-    if (formData.dni.trim() !== "") {
-      const clientes = await fetchClientes();
-      const clienteEncontrado = clientes.find(c => c.dni === formData.dni.trim());
-      if (clienteEncontrado) {
-        if (window.confirm("Se encontró un cliente con este DNI. ¿Desea cargar sus datos?")) {
-          setFormData(clienteEncontrado);
-        }
-      }
-    }
-  };
-
-  // Al enviar el formulario, si no existe el cliente, se llama a addClient
-  const handleNext = async () => {
-    const { nombre, apellido, dni, atendidoPor, fechaRetiro, fechaDevolucion } = formData;
-    if (!nombre || !apellido || !dni || !atendidoPor || !fechaRetiro || !fechaDevolucion) {
+  const handleNext = () => {
+    const { nombre, apellido, dni, telefono, correo, atendidoPor, fechaRetiro, fechaDevolucion } = formData;
+    if (!nombre || !apellido || !dni || !telefono || !correo || !atendidoPor || !fechaRetiro || !fechaDevolucion) {
       alert("Por favor, complete todos los campos.");
       return;
-    }
-    const clientes = await fetchClientes();
-    const clienteEncontrado = clientes.find(c => c.dni === dni.trim());
-    if (!clienteEncontrado) {
-      const result = await addClient(formData);
-      if (result && result.success) {
-        alert("Cliente agregado exitosamente.");
-      } else {
-        alert("No se pudo agregar el cliente.");
-      }
     }
     localStorage.setItem("cliente", JSON.stringify(formData));
     navigate('/productos', { state: formData });
@@ -86,7 +63,25 @@ export default function FormularioClienteSide() {
         name="dni"
         value={formData.dni}
         onChange={handleChange}
-        onBlur={handleBlurDni}
+      />
+      <TextField
+        margin="normal"
+        required
+        fullWidth
+        label="Teléfono"
+        name="telefono"
+        value={formData.telefono}
+        onChange={handleChange}
+      />
+      <TextField
+        margin="normal"
+        required
+        fullWidth
+        label="Correo Electrónico"
+        name="correo"
+        type="email"
+        value={formData.correo}
+        onChange={handleChange}
       />
       <TextField
         margin="normal"

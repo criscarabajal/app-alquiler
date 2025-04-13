@@ -1,13 +1,13 @@
-// Dentro de src/components/ProductosPOS.jsx
+// src/components/ProductosPOS.jsx
 import React, { useState, useEffect } from 'react';
-import { Box, TextField, MenuItem, Typography, IconButton, Popover, Button } from '@mui/material';
+import { Box, TextField, MenuItem, Typography, IconButton, Popover } from '@mui/material';
 import Carrito from './Carrito';
 import { fetchProductos } from '../utils/fetchProductos';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 
-// Función helper para transformar el nombre (primera letra en mayúscula, resto en minúsculas)
+// Helper: transforma el nombre (Primera letra en mayúscula, resto minúsculas)
 const toCapitalized = (str) => {
   if (!str) return "";
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
@@ -15,8 +15,7 @@ const toCapitalized = (str) => {
 
 const ProductCard = ({ producto, onAdd }) => {
   const [anchorEl, setAnchorEl] = useState(null);
-
-  // Cuando se hace clic en el botón de 3 puntitos
+  
   const handleClick = (event) => {
     setAnchorEl(event.currentTarget);
   };
@@ -24,12 +23,12 @@ const ProductCard = ({ producto, onAdd }) => {
     setAnchorEl(null);
   };
   const openPopover = Boolean(anchorEl);
-
+  
   return (
     <Box
       sx={{
         width: '100%',
-        height: '40px', // La altura de la fila: ajuste según la altura de la caja de texto + 10px
+        height: '40px',  // Altura fija: "caja de texto" + 10px
         position: 'relative',
         border: '1px solid #424242',
         borderRadius: 1,
@@ -40,18 +39,7 @@ const ProductCard = ({ producto, onAdd }) => {
         backgroundColor: 'grey.800'
       }}
     >
-      <Button
-        fullWidth
-        variant="text"
-        sx={{
-          textTransform: 'none',
-          color: 'white',
-          padding: 0,
-          justifyContent: 'flex-start',
-          height: '100%'
-        }}
-        onClick={() => onAdd(producto)}
-      >
+      <Box sx={{ flexGrow: 1 }}>
         <Typography
           sx={{
             fontSize: '0.9rem',
@@ -63,17 +51,9 @@ const ProductCard = ({ producto, onAdd }) => {
         >
           {toCapitalized(producto.nombre)}
         </Typography>
-      </Button>
-      {/* Contenedor para los dos iconos en la esquina inferior derecha */}
-      <Box
-        sx={{
-          position: 'absolute',
-          right: 4,
-          display: 'flex',
-          gap: 1,
-          alignItems: 'center'
-        }}
-      >
+      </Box>
+      {/* Contenedor de iconos en la esquina inferior derecha */}
+      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
         {producto.alquilable && producto.alquilable.toUpperCase() === "SI" ? (
           <CheckCircleIcon color="success" sx={{ fontSize: '1rem' }} />
         ) : (
@@ -85,7 +65,7 @@ const ProductCard = ({ producto, onAdd }) => {
             <IconButton size="small" onClick={handleClick} sx={{ p: 0 }}>
               <MoreVertIcon sx={{ color: 'white', fontSize: '1rem' }} />
             </IconButton>
-          )}
+        )}
       </Box>
       <Popover
         open={openPopover}
@@ -93,11 +73,11 @@ const ProductCard = ({ producto, onAdd }) => {
         onClose={handleClose}
         anchorOrigin={{
           vertical: 'top',
-          horizontal: 'center'
+          horizontal: 'center',
         }}
         transformOrigin={{
           vertical: 'bottom',
-          horizontal: 'center'
+          horizontal: 'center',
         }}
         PaperProps={{ sx: { backgroundColor: 'grey.800', color: 'white' } }}
       >
@@ -105,6 +85,19 @@ const ProductCard = ({ producto, onAdd }) => {
           {producto.incluye || "No especificado"}
         </Typography>
       </Popover>
+      {/* Al hacer clic en la card completa se agrega el producto */}
+      <Box
+        onClick={() => onAdd(producto)}
+        sx={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          cursor: 'pointer',
+          zIndex: 0,
+        }}
+      />
     </Box>
   );
 };
@@ -132,6 +125,11 @@ const ProductosPOS = () => {
       localStorage.setItem('productos', JSON.stringify(data));
     });
   }, []);
+
+  // Guarda el carrito en localStorage para que sea accesible desde la generación del remito
+  useEffect(() => {
+    localStorage.setItem('carrito', JSON.stringify(carrito));
+  }, [carrito]);
 
   const categorias = [...new Set(productos.map(p => p.categoria).filter(Boolean))];
   const subcategorias = [...new Set(

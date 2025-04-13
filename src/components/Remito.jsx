@@ -1,78 +1,119 @@
-import { useLocation, useNavigate } from "react-router-dom";
+// src/utils/generarRemito.js
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { useEffect } from "react";
+import { formatearFechaHora } from "./Fecha";
 
-export default function Remito() {
-  const location = useLocation();
-  const navigate = useNavigate();
+export function generarNumeroRemito() {
+  const ahora = new Date();
+  const timestamp = ahora.getTime();
+  return `SR-${timestamp}`;
+}
 
-  const productos = location.state?.productos || [];
-  const cliente = location.state?.cliente || {};
+export default function generarRemitoPDF(
+  cliente,
+  productosSeleccionados,
+  atendidoPor,
+  numeroRemito,
+  fechaEmision
+) {
+  const doc = new jsPDF();
 
-  useEffect(() => {
-    if (!productos.length || !cliente.nombre) {
-      // Si alguien entra directo al remito sin datos, redirigir
-      navigate("/");
-    }
-  }, [productos, cliente, navigate]);
+  // Encabezado
+  doc.setFontSize(18);
+  doc.text("Seguí Rodando", 14, 20);
+  doc.setFontSize(12);
+  doc.text(`REMITO ${numeroRemito}`, 200 - 14, 20, { align: "right" });
+  doc.line(14, 22, 200, 22);
 
-  const generarPDF = () => {
-    const doc = new jsPDF();
+  // Datos del cliente
+  doc.setFontSize(10);
+  let y = 30;
+  doc.text(`Nombre: ${cliente.nombre} ${cliente.apellido}`, 14, y); 
+  y += 6;
+  doc.text(`DNI: ${cliente.dni}`, 14, y); 
+  y += 6;
+  doc.text(`Atendido por: ${atendidoPor}`, 14, y); 
+  y += 6;
+  if (cliente.fechaRetiro) {
+    doc.text(`Retiro: ${formatearFechaHora(new Date(cliente.fechaRetiro))}`, 14, y);
+    y += 6;
+  }
+  if (cliente.fechaDevolucion) {
+    doc.text(`Devolución: ${formatearFechaHora(new Date(cliente.fechaDevolucion))}`, 14, y);
+    y += 6;
+  }
+  doc.text(`Fecha emisión: ${fechaEmision}`, 14, y);
+  y += 10;
 
-    doc.setFontSize(18);
-    doc.text("Remito de Alquiler - Seguí Rodando", 14, 20);
+  // Agrupar productos por Categoría y Subcategoría
+  const groups = {};
+  productosSeleccionados.forEach((item) => {
+    const cat = item.categoria || "Sin categoría";
+    const sub = item.subcategoria || "Sin subcategoría";
+    if (!groups[cat]) groups[cat] = {};
+    if (!groups[cat][sub]) groups[cat][sub] = [];
+    groups[cat][sub].push(item);
+  });
 
-    doc.setFontSize(12);
-    doc.text(`Cliente: ${cliente.nombre} ${cliente.apellido}`, 14, 30);
-    doc.text(`DNI: ${cliente.dni}`, 14, 36);
-    doc.text(`Atendido por: ${cliente.atendidoPor}`, 14, 42);
-    doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 48);
-
-    autoTable(doc, {
-      startY: 55,
-      head: [["Producto", "Categoría", "Subcategoría", "Incluye", "Cantidad"]],
-      body: productos.map((p) => [
-        p.nombre,
-        p.categoria,
-        p.subcategoria || "-",
-        p.incluye || "-",
-        p.cantidad,
-      ]),
-      styles: {
-        fontSize: 10,
-      },
+  const bodyRows = [];
+  Object.entries(groups).forEach(([cat, subGroups]) => {
+    Object.entries(subGroups).forEach(([sub, items]) => {
+      bodyRows.push([
+        {
+          content: `Categoría: ${cat} - Subcategoría: ${sub}`,
+          colSpan: 6,
+          styles: { halign: 'left', fillColor: false, textColor: 0, fontStyle: 'bold' }
+        }
+      ]);
+      items.forEach((item) => {
+        bodyRows.push([
+          item.nombre,
+          item.categoria,
+          item.subcategoria,
+          item.cantidad,
+          `$${parseFloat(item.precio || 0).toFixed(2)}`,
+          `$${(parseFloat(item.precio || 0) * item.cantidad).toFixed(2)}`
+        ]);
+      });
     });
+  });
 
-    doc.save(`remito-${cliente.apellido}-${Date.now()}.pdf`);
-  };
+  autoTable(doc, {
+    startY: y,
+    head: [["Producto", "Categoría", "Subcategoría", "Cantidad", "Precio Unitario", "Subtotal"]],
+    body: bodyRows,
+    theme: "grid",
+    headStyles: { fillColor: false, textColor: 0, fontStyle: 'bold' },
+    styles: { fontSize: 3 },
+  });
 
-  return (
-    <div style={{ padding: "2rem", background: "#121212", minHeight: "100vh", color: "#fff" }}>
-      <h2>Remito de alquiler</h2>
-
-      <div style={{ marginBottom: "1rem" }}>
-        <p><strong>Cliente:</strong> {cliente.nombre} {cliente.apellido}</p>
-        <p><strong>DNI:</strong> {cliente.dni}</p>
-        <p><strong>Atendido por:</strong> {cliente.atendidoPor}</p>
-        <p><strong>Fecha:</strong> {new Date().toLocaleDateString()}</p>
-      </div>
-
-      <h3>Productos:</h3>
-      {productos.map((p, i) => (
-        <div key={i} style={{ marginBottom: "1rem", borderBottom: "1px solid #444", paddingBottom: "0.5rem" }}>
-          <strong>{p.nombre}</strong> ({p.categoria} - {p.subcategoria || "-"})<br />
-          Incluye: {p.incluye || "-"}<br />
-          Cantidad: {p.cantidad}
-        </div>
-      ))}
-
-      <div style={{ marginTop: "2rem" }}>
-        <button onClick={generarPDF} style={{ marginRight: "1rem" }}>
-          Descargar remito en PDF
-        </button>
-        <button onClick={() => navigate("/")}>Volver al inicio</button>
-      </div>
-    </div>
+  const total = productosSeleccionados.reduce(
+    (acc, item) => acc + parseFloat(item.precio || 0) * item.cantidad,
+    0
   );
+  const finalY = doc.lastAutoTable?.finalY || y + 10;
+  doc.setFontSize(3);
+  doc.text(`TOTAL: $${total.toFixed(2)}`, 150, finalY + 10);
+
+  // Leer descuento desde localStorage y aplicarlo
+  const discountStored = localStorage.getItem('descuento');
+  console.log("Valor descuento en remito:", discountStored); // Depuración
+  let discountApplied = 0;
+  if (discountStored) {
+    discountApplied = parseFloat(discountStored);
+    if (isNaN(discountApplied)) discountApplied = 0;
+  }
+  if (discountApplied > 0) {
+    const discountAmount = total * (discountApplied / 100);
+    const finalTotal = total - discountAmount;
+    // Ajustamos la posición de estas líneas
+    doc.text(`Descuento (${discountApplied}%): -$${discountAmount.toFixed(2)}`, 14, finalY + 20);
+    doc.text(`TOTAL FINAL: $${finalTotal.toFixed(2)}`, 14, finalY + 30);
+  }
+
+  const yPie = doc.lastAutoTable?.finalY || finalY + 40;
+  doc.line(14, yPie + 10, 80, yPie + 10);
+  doc.text("Firma del cliente", 14, yPie + 15);
+
+  doc.save(`remito-${cliente.apellido}-${cliente.nombre}.pdf`);
 }

@@ -99,6 +99,25 @@ export default function SingleScreenView() {
             sx={{ mb: 2 }}
           />
           <TextField
+                  margin="normal"
+                  required
+                  fullWidth
+                  label="Teléfono"
+                  name="telefono"
+                  value={formData.telefono}
+                  onChange={handleChange}
+                />
+                <TextField
+                  margin="normal"
+                  required
+                  fullWidth
+                  label="Correo Electrónico"
+                  name="correo"
+                  type="email"
+                  value={formData.correo}
+                  onChange={handleChange}
+                />
+          <TextField
             margin="normal"
             required
             fullWidth
