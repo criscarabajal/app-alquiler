@@ -1,15 +1,22 @@
-// src/components/ProductosPOS.jsx
+// Dentro de src/components/ProductosPOS.jsx
 import React, { useState, useEffect } from 'react';
-import { Box, Grid, Button, TextField, MenuItem, Typography, IconButton, Popover } from '@mui/material';
+import { Box, TextField, MenuItem, Typography, IconButton, Popover, Button } from '@mui/material';
 import Carrito from './Carrito';
 import { fetchProductos } from '../utils/fetchProductos';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 
+// Función helper para transformar el nombre (primera letra en mayúscula, resto en minúsculas)
+const toCapitalized = (str) => {
+  if (!str) return "";
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+};
+
 const ProductCard = ({ producto, onAdd }) => {
   const [anchorEl, setAnchorEl] = useState(null);
-  
+
+  // Cuando se hace clic en el botón de 3 puntitos
   const handleClick = (event) => {
     setAnchorEl(event.currentTarget);
   };
@@ -17,68 +24,84 @@ const ProductCard = ({ producto, onAdd }) => {
     setAnchorEl(null);
   };
   const openPopover = Boolean(anchorEl);
-  
+
   return (
-    <Box sx={{ position: 'relative', borderRadius: 2 }}>
+    <Box
+      sx={{
+        width: '100%',
+        height: '40px', // La altura de la fila: ajuste según la altura de la caja de texto + 10px
+        position: 'relative',
+        border: '1px solid #424242',
+        borderRadius: 1,
+        overflow: 'hidden',
+        display: 'flex',
+        alignItems: 'center',
+        px: 1,
+        backgroundColor: 'grey.800'
+      }}
+    >
       <Button
         fullWidth
-        variant="contained"
+        variant="text"
         sx={{
-          backgroundColor: 'grey.800',
-          py: 2,
-          px: 1,
-          borderRadius: 2,
-          boxShadow: 1,
-          '&:hover': { backgroundColor: 'grey.700' },
           textTransform: 'none',
-          pt: 4,
-          pb: 4,
+          color: 'white',
+          padding: 0,
+          justifyContent: 'flex-start',
+          height: '100%'
         }}
         onClick={() => onAdd(producto)}
       >
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <Typography sx={{ fontSize: '1.125rem', fontWeight: 'bold' }}>
-            {producto.nombre}
-          </Typography>
-          <Typography sx={{ fontSize: '0.875rem', color: 'grey.400' }}>
-            ${parseFloat(producto.precio || 0).toFixed(2)}
-          </Typography>
-        </Box>
+        <Typography
+          sx={{
+            fontSize: '0.9rem',
+            fontWeight: 'bold',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          {toCapitalized(producto.nombre)}
+        </Typography>
       </Button>
-      {/* Ícono de 3 puntitos en la esquina inferior izquierda */}
-      {producto.incluye &&
-        typeof producto.incluye === 'string' &&
-        producto.incluye.trim() !== "" && (
-          <Box sx={{ position: 'absolute', bottom: 4, left: 4 }}>
-            <IconButton size="small" onClick={handleClick}>
-              <MoreVertIcon sx={{ color: 'white' }} />
-            </IconButton>
-          </Box>
-      )}
-      {/* Indicador de "Alquilable" en la esquina inferior derecha */}
-      <Box sx={{ position: 'absolute', bottom: 4, right: 4 }}>
+      {/* Contenedor para los dos iconos en la esquina inferior derecha */}
+      <Box
+        sx={{
+          position: 'absolute',
+          right: 4,
+          display: 'flex',
+          gap: 1,
+          alignItems: 'center'
+        }}
+      >
         {producto.alquilable && producto.alquilable.toUpperCase() === "SI" ? (
-          <CheckCircleIcon color="success" />
+          <CheckCircleIcon color="success" sx={{ fontSize: '1rem' }} />
         ) : (
-          <CancelIcon color="error" />
+          <CancelIcon color="error" sx={{ fontSize: '1rem' }} />
         )}
+        {producto.incluye &&
+          typeof producto.incluye === 'string' &&
+          producto.incluye.trim() !== "" && (
+            <IconButton size="small" onClick={handleClick} sx={{ p: 0 }}>
+              <MoreVertIcon sx={{ color: 'white', fontSize: '1rem' }} />
+            </IconButton>
+          )}
       </Box>
-      {/* Popover que se abre justo encima del producto mostrando "incluye" */}
       <Popover
         open={openPopover}
         anchorEl={anchorEl}
         onClose={handleClose}
         anchorOrigin={{
           vertical: 'top',
-          horizontal: 'center',
+          horizontal: 'center'
         }}
         transformOrigin={{
           vertical: 'bottom',
-          horizontal: 'center',
+          horizontal: 'center'
         }}
         PaperProps={{ sx: { backgroundColor: 'grey.800', color: 'white' } }}
       >
-        <Typography variant="body2" sx={{ p: 2 }}>
+        <Typography variant="body2" sx={{ p: 1 }}>
           {producto.incluye || "No especificado"}
         </Typography>
       </Popover>
@@ -109,11 +132,6 @@ const ProductosPOS = () => {
       localStorage.setItem('productos', JSON.stringify(data));
     });
   }, []);
-
-  // Guardar el carrito en localStorage cada vez que cambia
-  useEffect(() => {
-    localStorage.setItem('carrito', JSON.stringify(carrito));
-  }, [carrito]);
 
   const categorias = [...new Set(productos.map(p => p.categoria).filter(Boolean))];
   const subcategorias = [...new Set(
@@ -215,7 +233,7 @@ const ProductosPOS = () => {
         </TextField>
       </Box>
 
-      <Box sx={{ flex: 1, display: 'flex', gap: 2 }}>
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
         {/* Carrito */}
         <Carrito
           productosSeleccionados={carrito}
@@ -226,15 +244,13 @@ const ProductosPOS = () => {
           comentario={comentario}
           setComentario={setComentario}
         />
-        {/* Lista de Productos con scroll interno */}
-        <Box sx={{ flex: 1, height: '100%', overflowY: 'auto' }}>
-          <Grid container spacing={2}>
-            {filteredProducts.map((producto, index) => (
-              <Grid item xs={12} sm={6} md={4} key={index}>
-                <ProductCard producto={producto} onAdd={agregarAlCarrito} />
-              </Grid>
-            ))}
-          </Grid>
+        {/* Lista de Productos en formato de lista vertical */}
+        <Box sx={{ flex: 1, overflowY: 'auto' }}>
+          {filteredProducts.map((producto, index) => (
+            <Box key={index} sx={{ mb: 1 }}>
+              <ProductCard producto={producto} onAdd={agregarAlCarrito} />
+            </Box>
+          ))}
         </Box>
       </Box>
     </Box>
