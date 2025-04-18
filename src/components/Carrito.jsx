@@ -62,6 +62,13 @@ const Carrito = ({
   const discountAmount = total * (appliedDiscount / 100);
   const finalTotal = total - discountAmount;
 
+  const handleBorrarTodo = () => {
+    if (window.confirm("¿Estás seguro que quieres borrar todo el carrito?")) {
+      // Aquí asumimos que el padre pasa una función onBorrarTodo
+      onEliminar(-1); // señal para borrar todo
+    }
+  };
+
   return (
     <Paper
       sx={{
@@ -148,7 +155,7 @@ const Carrito = ({
         )}
       </Box>
 
-      {/* Contenedor con el select y el botón, ambos con el mismo ancho */}
+      {/* Contenedor con el select y los botones, todos con el mismo ancho */}
       <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
         <TextField
           select
@@ -162,10 +169,12 @@ const Carrito = ({
           <MenuItem value="20">Estudiantes (20%)</MenuItem>
           <MenuItem value="25">Rentals (25%)</MenuItem>
           <MenuItem value="especial">Especial</MenuItem>
-
         </TextField>
         <Button variant="outlined" onClick={handleApplyDiscount} sx={{ flex: 1 }}>
           Aplicar descuento
+        </Button>
+        <Button variant="outlined" color="error" onClick={handleBorrarTodo} sx={{ flex: 1 }}>
+          Borrar todo
         </Button>
       </Box>
     </Paper>
