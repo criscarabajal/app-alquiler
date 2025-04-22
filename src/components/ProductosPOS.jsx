@@ -1,223 +1,271 @@
 // src/components/ProductosPOS.jsx
 import React, { useState, useEffect } from 'react';
-import { Box, TextField, MenuItem, Typography, Popover } from '@mui/material';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CancelIcon from '@mui/icons-material/Cancel';
-import IconButton from '@mui/material/IconButton';
+import {
+  Box,
+  TextField,
+  MenuItem,
+  Typography,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Grid,
+  useTheme
+} from '@mui/material';
 import Carrito from './Carrito';
+import BottomNav from './BottomNav';
 import { fetchProductos } from '../utils/fetchProductos';
-
-// Helper: transforma el nombre (Primera letra en mayúscula, resto minúsculas)
-const toCapitalized = (str) => {
-  if (!str) return "";
-  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
-};
-
-const ProductCard = ({ producto, onAdd }) => {
-  const [anchorEl, setAnchorEl] = useState(null);
-  const openPopover = Boolean(anchorEl);
-
-  return (
-    <Box
-      sx={{
-        width: '100%',
-        height: 40,  // altura fija + 10px
-        position: 'relative',
-        border: '1px solid #424242',
-        borderRadius: 1,
-        overflow: 'hidden',
-        display: 'flex',
-        alignItems: 'center',
-        px: 1,
-        backgroundColor: 'grey.800',
-      }}
-    >
-      <Typography
-        sx={{
-          flexGrow: 1,
-          fontSize: '0.9rem',
-          fontWeight: 'bold',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {toCapitalized(producto.nombre)}
-      </Typography>
-
-      {producto.alquilable?.toUpperCase() === "SI"
-        ? <CheckCircleIcon color="success" sx={{ fontSize: '1rem' }} />
-        : <CancelIcon color="error" sx={{ fontSize: '1rem' }} />
-      }
-
-      {producto.incluye?.trim() && (
-        <>
-          <IconButton size="small" onClick={e => setAnchorEl(e.currentTarget)} sx={{ p: 0 }}>
-            <MoreVertIcon sx={{ color: 'white', fontSize: '1rem' }} />
-          </IconButton>
-          <Popover
-            open={openPopover}
-            anchorEl={anchorEl}
-            onClose={() => setAnchorEl(null)}
-            anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-            transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-            PaperProps={{ sx: { backgroundColor: 'grey.800', color: 'white' } }}
-          >
-            <Typography variant="body2" sx={{ p: 1 }}>
-              {producto.incluye}
-            </Typography>
-          </Popover>
-        </>
-      )}
-
-      {/* Capa clicable para agregar */}
-      <Box
-        onClick={() => onAdd(producto)}
-        sx={{
-          position: 'absolute',
-          inset: 0,
-          cursor: 'pointer',
-          zIndex: 0,
-        }}
-      />
-    </Box>
-  );
-};
+import generarRemitoPDF, { generarNumeroRemito } from '../utils/generarRemito';
 
 export default function ProductosPOS() {
+  const theme = useTheme();
   const [productos, setProductos] = useState([]);
-  const [carrito, setCarrito] = useState([]);
+  const [buscar, setBuscar] = useState('');
+  const [categoria, setCategoria] = useState('');
+  const [subcategoria, setSubcategoria] = useState('');
+  const [carrito, setCarrito] = useState(() =>
+    JSON.parse(localStorage.getItem('carrito') || '[]')
+  );
   const [comentario, setComentario] = useState('');
-  const [nombreBuscado, setNombreBuscado] = useState('');
-  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState('');
-  const [subcategoriaSeleccionada, setSubcategoriaSeleccionada] = useState('');
 
-  useEffect(() => {
-    const cache = localStorage.getItem('productos');
-    if (cache) {
-      try {
-        setProductos(JSON.parse(cache));
-      } catch {
-        localStorage.removeItem('productos');
-      }
-    }
-    fetchProductos().then(data => {
-      setProductos(data);
-      localStorage.setItem('productos', JSON.stringify(data));
-    });
-  }, []);
+  // Estado popup Cliente
+  const [openCliente, setOpenCliente] = useState(false);
+  const [clienteForm, setClienteForm] = useState(() =>
+    JSON.parse(localStorage.getItem('cliente') || '{}')
+  );
+  const [cliente, setCliente] = useState(() =>
+    JSON.parse(localStorage.getItem('cliente') || '{}')
+  );
 
+  useEffect(() => { fetchProductos().then(setProductos); }, []);
   useEffect(() => {
     localStorage.setItem('carrito', JSON.stringify(carrito));
   }, [carrito]);
 
   const categorias = [...new Set(productos.map(p => p.categoria).filter(Boolean))];
-  const subcategorias = [...new Set(
-    productos
-      .filter(p => !categoriaSeleccionada || p.categoria === categoriaSeleccionada)
-      .map(p => p.subcategoria)
-      .filter(Boolean)
-  )];
+  const subcategorias = [
+    ...new Set(
+      productos
+        .filter(p => !categoria || p.categoria === categoria)
+        .map(p => p.subcategoria)
+        .filter(Boolean)
+    ),
+  ];
+  const sugerencias = productos.filter(p =>
+    p.nombre.toLowerCase().includes(buscar.toLowerCase()) &&
+    (!categoria || p.categoria === categoria) &&
+    (!subcategoria || p.subcategoria === subcategoria)
+  );
 
-  const filtered = productos.filter(p => {
-    return p.nombre.toLowerCase().includes(nombreBuscado.toLowerCase())
-      && (!categoriaSeleccionada || p.categoria === categoriaSeleccionada)
-      && (!subcategoriaSeleccionada || p.subcategoria === subcategoriaSeleccionada);
-  });
-
-  const agregarAlCarrito = producto => {
-    const idx = carrito.findIndex(p => p.nombre === producto.nombre);
+  // Carrito handlers
+  const agregarAlCarrito = p => {
+    const idx = carrito.findIndex(x => x.nombre === p.nombre);
     if (idx !== -1) {
-      const copia = [...carrito];
-      copia[idx].cantidad += 1;
-      setCarrito(copia);
+      const copia = [...carrito]; copia[idx].cantidad++; setCarrito(copia);
     } else {
-      setCarrito([...carrito, { ...producto, cantidad: 1 }]);
+      setCarrito([...carrito, { ...p, cantidad: 1 }]);
     }
   };
+  const incrementar = i => { const c = [...carrito]; c[i].cantidad++; setCarrito(c); };
+  const decrementar = i => { const c = [...carrito]; if (c[i].cantidad > 1) c[i].cantidad--; setCarrito(c); };
+  const eliminar = i => { const c = [...carrito]; c.splice(i, 1); setCarrito(c); };
+  const clearAll = () => setCarrito([]);
 
-  const calcularTotal = () =>
-    carrito.reduce((sum, p) => sum + parseFloat(p.precio || 0) * p.cantidad, 0);
+  const total = carrito.reduce((sum, x) => sum + (parseFloat(x.precio) || 0) * x.cantidad, 0);
+
+  // Cliente dialog handlers
+  const handleOpenCliente = () => setOpenCliente(true);
+  const handleCloseCliente = () => setOpenCliente(false);
+  const handleClienteChange = e => {
+    const { name, value } = e.target;
+    setClienteForm(prev => ({ ...prev, [name]: value }));
+  };
+  const handleSaveCliente = () => {
+    const { nombre, apellido, dni, atendidoPor } = clienteForm;
+    if (!nombre || !apellido || !dni || !atendidoPor) {
+      alert('Completa todos los campos obligatorios');
+      return;
+    }
+    localStorage.setItem('cliente', JSON.stringify(clienteForm));
+    setCliente(clienteForm);
+    setOpenCliente(false);
+  };
+
+  // Generar remito
+  const handleGenerarRemito = () => {
+    if (!cliente.nombre) {
+      handleOpenCliente();
+      return;
+    }
+    const numero = generarNumeroRemito();
+    const fecha = new Date().toLocaleDateString('es-AR');
+    generarRemitoPDF(cliente, carrito, cliente.atendidoPor, numero, fecha);
+  };
+
+  // Alturas header/footer en px (theme.spacing(9) ≃ 72px)
+  const HEADER_HEIGHT = theme.spacing(9);
+  const BOTTOM_HEIGHT = theme.spacing(9);
 
   return (
-    <Box
-      sx={{
-        height: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        backgroundColor: 'grey.900',
-        color: 'white',
-        p: 2,
-      }}
-    >
-      {/* 1) Filtros (fijo) */}
-      <Box sx={{ flex: '0 0 auto', mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+    <Box>
+      {/* Barra superior */}
+      <Box
+        sx={{
+          position: 'fixed', top: 0, left: 0, right: 0,
+          height: HEADER_HEIGHT,
+          backgroundColor: 'grey.900',
+          display: 'flex', alignItems: 'center', gap: 2, px: 2, zIndex: 1200
+        }}
+      >
         <TextField
-          label="Buscar producto"
-          size="small"
-          variant="outlined"
-          value={nombreBuscado}
-          onChange={e => setNombreBuscado(e.target.value)}
-          sx={{ backgroundColor: 'grey.800', borderRadius: 1, flexGrow: 1 }}
+          size="small" variant="outlined" placeholder="Buscar producto"
+          value={buscar} onChange={e => setBuscar(e.target.value)}
+          sx={{ flexGrow: 1, backgroundColor: 'grey.800', borderRadius: 1 }}
         />
         <TextField
-          select
-          label="Categoría"
-          size="small"
-          variant="outlined"
-          value={categoriaSeleccionada}
-          onChange={e => {
-            setCategoriaSeleccionada(e.target.value);
-            setSubcategoriaSeleccionada('');
-          }}
-          sx={{ backgroundColor: 'grey.800', borderRadius: 1, minWidth: 120 }}
+          size="small" select value={categoria}
+          onChange={e => { setCategoria(e.target.value); setSubcategoria(''); }}
+          sx={{ minWidth: 140, backgroundColor: 'grey.800', borderRadius: 1 }}
         >
           <MenuItem value="">Todas</MenuItem>
           {categorias.map((c, i) => <MenuItem key={i} value={c}>{c}</MenuItem>)}
         </TextField>
         <TextField
-          select
-          label="Subcategoría"
-          size="small"
-          variant="outlined"
-          value={subcategoriaSeleccionada}
-          onChange={e => setSubcategoriaSeleccionada(e.target.value)}
-          sx={{ backgroundColor: 'grey.800', borderRadius: 1, minWidth: 120 }}
-          disabled={!categoriaSeleccionada}
+          size="small" select value={subcategoria}
+          onChange={e => setSubcategoria(e.target.value)}
+          disabled={!categoria}
+          sx={{ minWidth: 140, backgroundColor: 'grey.800', borderRadius: 1 }}
         >
           <MenuItem value="">Todas</MenuItem>
           {subcategorias.map((s, i) => <MenuItem key={i} value={s}>{s}</MenuItem>)}
         </TextField>
       </Box>
 
-      {/* 2) Carrito (fijo) */}
-      <Box sx={{ flex: '0 0 auto', mb: 2 }}>
+      {/* Sección “Pedido” fija 30% */}
+      <Box
+        sx={{
+          position: 'fixed',
+          top: HEADER_HEIGHT,
+          bottom: BOTTOM_HEIGHT,
+          left: 0,
+          width: '30%',
+          p: 2,
+          backgroundColor: 'grey.900',
+          overflowY: 'auto',
+          zIndex: 1000,
+        }}
+      >
         <Carrito
           productosSeleccionados={carrito}
-          onIncrementar={(i) => {/* tu función */}}
-          onDecrementar={(i) => {/* tu función */}}
-          onEliminar={(i) => {/* tu función */}}
-          total={calcularTotal()}
+          onIncrementar={incrementar}
+          onDecrementar={decrementar}
+          onEliminar={eliminar}
+          onCantidadChange={(idx, nuevaCantidad) => {
+            const copia = [...carrito];
+            copia[idx].cantidad = nuevaCantidad;
+            setCarrito(copia);
+          }}
+          total={total}
           comentario={comentario}
           setComentario={setComentario}
+          onClearAll={clearAll}
         />
       </Box>
 
-      {/* 3) Lista de productos (scrollable) */}
+      {/* Listado de productos ocupa 70% derecho */}
       <Box
         sx={{
-          flex: '1 1 auto',
+          position: 'fixed',
+          top: HEADER_HEIGHT,
+          bottom: BOTTOM_HEIGHT,
+          left: '30%',
+          right: 0,
+          p: 2,
+          backgroundColor: 'grey.800',
           overflowY: 'auto',
-          pb: '64px'  // espacio para que no queden productos tras el navbar inferior
         }}
       >
-        {filtered.map((producto, idx) => (
-          <Box key={idx} sx={{ mb: 1 }}>
-            <ProductCard producto={producto} onAdd={agregarAlCarrito} />
+        {sugerencias.map((p, i) => (
+          <Box
+            key={i}
+            onClick={() => agregarAlCarrito(p)}
+            sx={{
+              mb: 1, p: 1, borderRadius: 1, backgroundColor: 'grey.700', cursor: 'pointer',
+              '&:hover': { backgroundColor: 'grey.600' }
+            }}
+          >
+            <Typography variant="body1">{p.nombre}</Typography>
+            <Typography variant="caption">${parseFloat(p.precio || 0).toFixed(2)}</Typography>
           </Box>
         ))}
       </Box>
+
+      {/* Diálogo Cliente */}
+      <Dialog open={openCliente} onClose={handleCloseCliente}>
+        <DialogTitle>Datos del Cliente</DialogTitle>
+        <DialogContent sx={{ backgroundColor: 'grey.900', color: 'white' }}>
+          <Grid container spacing={2} sx={{ pt: 1 }}>
+            {['nombre','apellido','dni'].map(f => (
+              <Grid item xs={12} key={f}>
+                <TextField
+                  fullWidth name={f}
+                  label={f.charAt(0).toUpperCase() + f.slice(1)}
+                  value={clienteForm[f] || ''}
+                  onChange={handleClienteChange}
+                  variant="outlined" size="small"
+                  sx={{ backgroundColor: 'grey.800', borderRadius: 1 }}
+                />
+              </Grid>
+            ))}
+            <Grid item xs={12}>
+              <TextField
+                select fullWidth name="atendidoPor" label="Atendido por"
+                value={clienteForm.atendidoPor || ''}
+                onChange={handleClienteChange}
+                variant="outlined" size="small"
+                sx={{ backgroundColor: 'grey.800', borderRadius: 1 }}
+              >
+                <MenuItem value="">Seleccionar...</MenuItem>
+                <MenuItem value="Matias">Matias</MenuItem>
+                <MenuItem value="Jhona">Jhona</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth name="fechaRetiro" label="Fecha de Retiro" type="datetime-local"
+                InputLabelProps={{ shrink: true }}
+                value={clienteForm.fechaRetiro || ''}
+                onChange={handleClienteChange}
+                size="small"
+                sx={{ backgroundColor: 'grey.800', borderRadius: 1 }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth name="fechaDevolucion" label="Fecha de Devolución" type="datetime-local"
+                InputLabelProps={{ shrink: true }}
+                value={clienteForm.fechaDevolucion || ''}
+                onChange={handleClienteChange}
+                size="small"
+                sx={{ backgroundColor: 'grey.800', borderRadius: 1 }}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ backgroundColor: 'grey.900', px: 3, pb: 2 }}>
+          <Button onClick={handleCloseCliente}>Cancelar</Button>
+          <Button variant="contained" onClick={handleSaveCliente}>Confirmar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Navbar Inferior */}
+      <BottomNav
+        onOpenCliente={handleOpenCliente}
+        onGenerarRemito={handleGenerarRemito}
+        onCancelar={clearAll}
+        onBuscarPedido={() => {}}
+      />
     </Box>
   );
 }

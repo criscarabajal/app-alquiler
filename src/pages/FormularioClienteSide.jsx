@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TextField, Button, Typography } from '@mui/material';
-import ResponsiveLayout from '../components/ResponsiveLayout';
+import SingleColorLayout from "../components/SingleColorLayout";
 
 export default function FormularioClienteSide() {
   const navigate = useNavigate();
@@ -33,7 +33,7 @@ export default function FormularioClienteSide() {
   };
 
   return (
-    <ResponsiveLayout imageUrl="https://source.unsplash.com/random/?photography">
+    <SingleColorLayout imageUrl="https://source.unsplash.com/random/?photography">
       <Typography component="h1" variant="h4" gutterBottom>
         Datos del Cliente
       </Typography>
@@ -127,6 +127,6 @@ export default function FormularioClienteSide() {
       >
         Siguiente
       </Button>
-    </ResponsiveLayout>
+    </SingleColorLayout>
   );
 }

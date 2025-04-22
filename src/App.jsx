@@ -1,9 +1,6 @@
-// src/App.jsx
 import React from 'react';
-import SingleScreenView from './pages/SingleScreenView';
+import ProductosPOS from './components/ProductosPOS';
 
-const App = () => {
-  return <SingleScreenView />;
-};
-
-export default App;
+export default function App() {
+  return <ProductosPOS />;
+}
