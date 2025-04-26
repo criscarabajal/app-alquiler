@@ -149,7 +149,7 @@ export default function ProductosPOS() {
 
   // 7) Configuración slider
   const settings = {
-    arrows: true,
+    arrows: false,
     infinite: false,
     rows,
     slidesPerRow: SLIDES_PER_ROW,
