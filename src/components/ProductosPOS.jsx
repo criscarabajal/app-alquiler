@@ -21,6 +21,7 @@ import Carrito from './Carrito';
 import BottomNav from './BottomNav';
 import { fetchProductos } from '../utils/fetchProductos';
 import generarRemitoPDF, { generarNumeroRemito } from '../utils/generarRemito';
+import generarPresupuestoPDF, { generarNumeroPresupuesto } from '../utils/generarPresupuesto';
 import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
 
@@ -33,19 +34,11 @@ export default function ProductosPOS() {
   const SLIDES_PER_ROW = 5;
 
   const categoriasNav = [
-    'LUCES',
-    'GRIPERIA',
-    'TELAS',
-    'CAMARAS',
-    'LENTES',
-    'BATERIAS',
-    'MONITOREO',
-    'FILTROS',
-    'ACCESORIOS DE CAMARA',
-    'SONIDO'
+    'LUCES','GRIPERIA','TELAS','CAMARAS','LENTES',
+    'BATERIAS','MONITOREO','FILTROS','ACCESORIOS DE CAMARA','SONIDO'
   ];
 
-  // --- Productos y filtros ---
+  // --- Productos & filtros ---
   const [productos, setProductos] = useState([]);
   const [buscar, setBuscar] = useState('');
   const [categoria, setCategoria] = useState('');
@@ -63,14 +56,11 @@ export default function ProductosPOS() {
   const [rows, setRows] = useState(1);
   const sliderRef = useRef(null);
   const [isSliding, setIsSliding] = useState(false);
-
-  // Desbloqueo inicial
   useEffect(() => setIsSliding(false), []);
 
-  // Calcular filas
   const calcularFilas = useCallback(() => {
-    const disponible = window.innerHeight - HEADER - FOOTER - ROW_GAP;
-    const n = Math.floor(disponible / (CARD_HEIGHT + ROW_GAP));
+    const alto = window.innerHeight - HEADER - FOOTER - ROW_GAP;
+    const n = Math.floor(alto / (CARD_HEIGHT + ROW_GAP));
     setRows(n > 0 ? n : 1);
   }, [HEADER, FOOTER]);
   useEffect(() => {
@@ -79,19 +69,14 @@ export default function ProductosPOS() {
     return () => window.removeEventListener('resize', calcularFilas);
   }, [calcularFilas]);
 
-  // Cargar productos
   useEffect(() => {
-    fetchProductos()
-      .then(setProductos)
-      .finally(() => setIsSliding(false));
+    fetchProductos().then(setProductos).finally(() => setIsSliding(false));
   }, []);
 
-  // Persistir carrito
   useEffect(() => {
     localStorage.setItem('carrito', JSON.stringify(carrito));
   }, [carrito]);
 
-  // Filtrar sugerencias
   useEffect(() => {
     setSugerencias(
       productos.filter(p =>
@@ -103,12 +88,11 @@ export default function ProductosPOS() {
     );
   }, [productos, buscar, categoria, subcategoria, favorita]);
 
-  // Reset slider al cambiar filtros
   useEffect(() => {
     sliderRef.current?.slickGoTo(0);
   }, [buscar, categoria, subcategoria, favorita, rows, sugerencias.length]);
 
-  // --- Carrito handlers ---
+  // --- Handlers Carrito ---
   const agregarAlCarrito = p => {
     if (isSliding) return;
     const idx = carrito.findIndex(x => x.nombre === p.nombre);
@@ -120,14 +104,14 @@ export default function ProductosPOS() {
       setCarrito([...carrito, { ...p, cantidad: 1 }]);
     }
   };
-  const incrementar = i => { const c=[...carrito]; c[i].cantidad++; setCarrito(c); };
-  const decrementar = i => { const c=[...carrito]; if(c[i].cantidad>1) c[i].cantidad--; setCarrito(c); };
-  const setCantidad = (i,v) => {
-    const c=[...carrito];
+  const incrementar = i => { const c = [...carrito]; c[i].cantidad++; setCarrito(c); };
+  const decrementar = i => { const c = [...carrito]; if(c[i].cantidad>1) c[i].cantidad--; setCarrito(c); };
+  const setCantidad = (i, v) => { 
+    const c = [...carrito];
     c[i].cantidad = v === '' ? '' : Math.max(1, parseInt(v,10));
     setCarrito(c);
   };
-  const eliminar = i => { const c=[...carrito]; c.splice(i,1); setCarrito(c); };
+  const eliminar = i => { const c = [...carrito]; c.splice(i,1); setCarrito(c); };
   const clearAll = () => setCarrito([]);
 
   const total = carrito.reduce(
@@ -135,17 +119,16 @@ export default function ProductosPOS() {
     0
   );
 
-  // --- Cliente desde Google Sheets ---
+  // --- Cliente desde Sheets ---
   const [clientes, setClientes] = useState([]);
   useEffect(() => {
     const sheetId = '1DhpNyUyM-sTHuoucELtaDP3Ul5-JemSrw7uhnhohMZc';
     const gid = '888837097';
-    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?gid=${gid}&tq=${encodeURIComponent('SELECT *')}`;
-    fetch(url)
+    fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?gid=${gid}&tq=${encodeURIComponent('SELECT *')}`)
       .then(r => r.text())
       .then(txt => {
         const json = JSON.parse(txt.slice(txt.indexOf('(')+1, -2));
-        const cols = json.table.cols.map(c => c.label.trim());
+        const cols = json.table.cols.map(c=>c.label.trim());
         const idx = {
           nombre: cols.findIndex(l=>/nombre/i.test(l)),
           apellido: cols.findIndex(l=>/apellido/i.test(l)),
@@ -153,14 +136,13 @@ export default function ProductosPOS() {
           telefono: cols.findIndex(l=>/telefono/i.test(l)),
           email: cols.findIndex(l=>/email/i.test(l))
         };
-        const rowsData = json.table.rows.map(r => ({
+        setClientes(json.table.rows.map(r=>({
           nombre: r.c[idx.nombre]?.v||'',
           apellido: r.c[idx.apellido]?.v||'',
           dni: String(r.c[idx.dni]?.v||''),
           telefono: String(r.c[idx.telefono]?.v||''),
           email: r.c[idx.email]?.v||''
-        }));
-        setClientes(rowsData);
+        })));
       })
       .catch(console.error);
   }, []);
@@ -179,7 +161,7 @@ export default function ProductosPOS() {
   const handleClientSearch = () => {
     const clean = dniInput.replace(/\D/g,'');
     const found = clientes.find(c=>c.dni.replace(/\D/g,'')===clean);
-    if (found) {
+    if(found){
       setClientSuggestion(`Coincidencia: ${found.nombre} ${found.apellido}`);
       setClienteForm(found);
     } else {
@@ -189,14 +171,14 @@ export default function ProductosPOS() {
   const handleOpenCliente = () => setOpenCliente(true);
   const handleCloseCliente = () => setOpenCliente(false);
   const handleClienteChange = e => {
-    const { name, value } = e.target;
-    if (name==='dni') setDniInput(value);
+    const {name,value} = e.target;
+    if(name==='dni') setDniInput(value);
     setClienteForm(prev=>({...prev,[name]:value}));
     setClientSuggestion('');
   };
   const handleSaveCliente = () => {
-    const { nombre, apellido, dni, atendidoPor } = clienteForm;
-    if (!nombre||!apellido||!dni||!atendidoPor) {
+    const {nombre,apellido,dni,atendidoPor} = clienteForm;
+    if(!nombre||!apellido||!dni||!atendidoPor){
       alert('Completa todos los campos obligatorios');
       return;
     }
@@ -204,17 +186,22 @@ export default function ProductosPOS() {
     setCliente(clienteForm);
     handleCloseCliente();
   };
+
+  // --- Generar Remito / Presupuesto ---
   const handleGenerarRemito = () => {
-    if (!cliente.nombre) {
-      handleOpenCliente();
-      return;
-    }
+    if(!cliente.nombre){ handleOpenCliente(); return; }
     const num = generarNumeroRemito();
     const fecha = new Date().toLocaleDateString('es-AR');
     generarRemitoPDF(cliente, carrito, cliente.atendidoPor, num, fecha);
   };
+  const handleGenerarPresupuesto = () => {
+    if(!cliente.nombre){ handleOpenCliente(); return; }
+    const num = generarNumeroPresupuesto();
+    const fecha = new Date().toLocaleDateString('es-AR');
+    generarPresupuestoPDF(cliente, carrito, cliente.atendidoPor, num, fecha);
+  };
 
-  // --- Slider settings con before/afterChange ---
+  // --- Slider settings ---
   const settings = {
     arrows: true,
     infinite: false,
@@ -225,7 +212,7 @@ export default function ProductosPOS() {
     speed: 600,
     cssEase: 'ease-in-out',
     beforeChange: () => setIsSliding(true),
-    afterChange: () => setIsSliding(false),
+    afterChange:  () => setIsSliding(false),
   };
 
   return (
@@ -234,50 +221,34 @@ export default function ProductosPOS() {
       <Box sx={{
         position:'fixed', top:0,left:0,right:0,
         height:HEADER, bgcolor:'grey.900',
-        display:'flex', alignItems:'center', gap:2, px:2, zIndex:1200
+        display:'flex', alignItems:'center', gap:1, px:2, zIndex:1200
       }}>
         <TextField
-          size="small"
-          variant="outlined"
-          placeholder="Buscar producto"
-          value={buscar}
-          onChange={e=>setBuscar(e.target.value)}
-          InputProps={{
-            endAdornment:(
-              <InputAdornment position="end">
-                <SearchIcon/>
-              </InputAdornment>
-            )
-          }}
+          size="small" variant="outlined" placeholder="Buscar producto"
+          value={buscar} onChange={e=>setBuscar(e.target.value)}
+          InputProps={{ endAdornment:<InputAdornment position="end"><SearchIcon/></InputAdornment> }}
           sx={{ flexGrow:1, bgcolor:'grey.800', borderRadius:1 }}
         />
         <TextField
-          size="small"
-          select
-          label="Categoría"
-          value={categoria}
-          onChange={e=>{setCategoria(e.target.value); setSubcategoria('');}}
-          sx={{ minWidth:140, bgcolor:'grey.800', borderRadius:1 }}
+          size="small" select label="Categoría"
+          value={categoria} onChange={e=>{setCategoria(e.target.value); setSubcategoria('');}}
+          sx={{ minWidth:120, bgcolor:'grey.800', borderRadius:1 }}
         >
           <MenuItem value="">Todas</MenuItem>
           {Array.from(new Set(productos.map(p=>p.categoria).filter(Boolean)))
             .map((c,i)=><MenuItem key={i} value={c}>{c}</MenuItem>)}
         </TextField>
         <TextField
-          size="small"
-          select
-          label="Subcategoría"
-          value={subcategoria}
-          onChange={e=>setSubcategoria(e.target.value)}
+          size="small" select label="Subcategoría"
+          value={subcategoria} onChange={e=>setSubcategoria(e.target.value)}
           disabled={!categoria}
-          sx={{ minWidth:140, bgcolor:'grey.800', borderRadius:1 }}
+          sx={{ minWidth:120, bgcolor:'grey.800', borderRadius:1 }}
         >
           <MenuItem value="">Todas</MenuItem>
           {Array.from(new Set(
-            productos
-              .filter(p=>p.categoria===categoria)
-              .map(p=>p.subcategoria)
-              .filter(Boolean)
+            productos.filter(p=>p.categoria===categoria)
+                    .map(p=>p.subcategoria)
+                    .filter(Boolean)
           )).map((s,i)=><MenuItem key={i} value={s}>{s}</MenuItem>)}
         </TextField>
       </Box>
@@ -301,25 +272,36 @@ export default function ProductosPOS() {
         />
       </Box>
 
-      {/* PRODUCTOS + FAVORITAS */}
+      {/* PRODUCTOS + NAVBAR CATEGORÍAS FAVORITAS */}
       <Box sx={{
         position:'fixed', top:HEADER,bottom:FOOTER,
         left:'30%', right:0, p:2,
-        bgcolor:'grey.800', overflowY:'auto'
+        bgcolor:'grey.800'
       }}>
-        <TextField
-          select fullWidth label="Categorías favoritas"
-          value={favorita}
-          onChange={e=>setFavorita(e.target.value)}
-          sx={{ mb:2, bgcolor:'grey.800', borderRadius:1 }}
-        >
-          <MenuItem value="">(ninguna)</MenuItem>
-          {categoriasNav.map((cat,i)=>
-            <MenuItem key={i} value={cat}>{cat}</MenuItem>
-          )}
-        </TextField>
+        <Box sx={{ mb:2, display:'flex', gap:1, overflowX:'auto' }}>
+          <Button
+            size="small"
+            variant={!favorita ? 'contained' : 'outlined'}
+            sx={{ minWidth:'auto', px:1, py:0.5, fontSize:{ xs:'0.6rem', sm:'0.75rem' } }}
+            onClick={()=>setFavorita('')}
+          >
+            Todas
+          </Button>
+          {categoriasNav.map((cat,i)=>(
+            <Button
+              key={i}
+              size="small"
+              variant={favorita===cat ? 'contained' : 'outlined'}
+              sx={{ minWidth:'auto', px:1, py:0.5, fontSize:{ xs:'0.6rem', sm:'0.75rem' } }}
+              onClick={()=>setFavorita(cat)}
+            >
+              {cat}
+            </Button>
+          ))}
+        </Box>
         <Slider ref={sliderRef} {...settings}>
           {sugerencias.map((p,i)=>(
+
             <Box key={i} sx={{ px:1, pb:`${ROW_GAP}px` }}>
               <Box
                 onClick={e=>{
@@ -334,20 +316,16 @@ export default function ProductosPOS() {
                   '&:hover':{ bgcolor:!isSliding?'grey.600':'grey.700' }
                 }}
               >
+                {/* Nombre expresado íntegro y en varias líneas si hace falta */}
                 <Typography
                   variant="subtitle1"
-                  sx={{
-                    fontWeight:600,lineHeight:1.2,
-                    whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'
-                  }}
+                  sx={{ fontWeight:600, lineHeight:1.2, wordBreak:'break-word' }}
                 >
                   {p.nombre}
                 </Typography>
-                <Typography variant="h6" sx={{ fontWeight:500 }}>
+                <Box sx={{ flexGrow:1 }} />
+                <Typography variant="h6" sx={{ fontWeight:500, textAlign:'right' }}>
                   ${(parseFloat(p.precio)||0).toFixed(2)}
-                </Typography>
-                <Typography variant="body2" sx={{ color:'grey.300' }}>
-                  {p.categoria} / {p.subcategoria}
                 </Typography>
               </Box>
             </Box>
@@ -355,7 +333,7 @@ export default function ProductosPOS() {
         </Slider>
       </Box>
 
-      {/* DIALOG CLIENTE */}
+      {/* DIÁLOGO CLIENTE */}
       <Dialog open={openCliente} onClose={handleCloseCliente} fullWidth maxWidth="md">
         <DialogTitle>Datos del Cliente</DialogTitle>
         <DialogContent sx={{ bgcolor:'grey.900', color:'#fff', minHeight:400 }}>
@@ -436,6 +414,7 @@ export default function ProductosPOS() {
       <BottomNav
         onOpenCliente={handleOpenCliente}
         onGenerarRemito={handleGenerarRemito}
+        onGenerarPresupuesto={handleGenerarPresupuesto}
         onCancelar={clearAll}
         onBuscarPedido={()=>{}}
       />
