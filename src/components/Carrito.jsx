@@ -53,6 +53,7 @@ export default function Carrito({
 
   const discountAmount = total * (appliedDiscount / 100);
   const finalTotal = total - discountAmount;
+  const totalWithIva = finalTotal * 1.21; // IVA 21%
 
   // Mostrar último agregado primero
   const ordenados = productosSeleccionados
@@ -70,7 +71,6 @@ export default function Carrito({
         display: 'flex',
         flexDirection: 'column',
         borderRadius: 2,
-        // Reducir fuente general un poco
         fontSize: '0.875rem'
       }}
     >
@@ -159,6 +159,10 @@ export default function Carrito({
             </Typography>
           </>
         )}
+        {/* Total con IVA */}
+        <Typography sx={{ fontSize: '0.875rem', fontWeight: 'bold', mt: 1 }}>
+          Total + IVA (21%): ${totalWithIva.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+        </Typography>
       </Box>
 
       <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>

@@ -1,5 +1,5 @@
 // src/components/ProductosPOS.jsx
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Box,
   TextField,
@@ -41,9 +41,8 @@ export default function ProductosPOS() {
   // --- Productos & filtros ---
   const [productos, setProductos] = useState([]);
   const [buscar, setBuscar] = useState('');
-  const [categoria, setCategoria] = useState('');
-  const [subcategoria, setSubcategoria] = useState('');
   const [favorita, setFavorita] = useState('');
+  const [subcategoria, setSubcategoria] = useState('');
   const [sugerencias, setSugerencias] = useState([]);
 
   // --- Carrito ---
@@ -58,10 +57,10 @@ export default function ProductosPOS() {
   const [isSliding, setIsSliding] = useState(false);
   useEffect(() => setIsSliding(false), []);
 
+  // Calcular filas
   const calcularFilas = useCallback(() => {
     const alto = window.innerHeight - HEADER - FOOTER - ROW_GAP;
-    const n = Math.floor(alto / (CARD_HEIGHT + ROW_GAP));
-    setRows(n > 0 ? n : 1);
+    setRows(Math.max(1, Math.floor(alto / (CARD_HEIGHT + ROW_GAP))));
   }, [HEADER, FOOTER]);
   useEffect(() => {
     calcularFilas();
@@ -69,30 +68,46 @@ export default function ProductosPOS() {
     return () => window.removeEventListener('resize', calcularFilas);
   }, [calcularFilas]);
 
+  // Cargar productos
   useEffect(() => {
     fetchProductos().then(setProductos).finally(() => setIsSliding(false));
   }, []);
 
+  // Persistir carrito
   useEffect(() => {
     localStorage.setItem('carrito', JSON.stringify(carrito));
   }, [carrito]);
 
+  // Filtrar sugerencias
   useEffect(() => {
     setSugerencias(
       productos.filter(p =>
         p.nombre.toLowerCase().includes(buscar.toLowerCase()) &&
-        (!categoria || p.categoria === categoria) &&
-        (!subcategoria || p.subcategoria === subcategoria) &&
-        (!favorita || p.categoria === favorita)
+        (!favorita || p.categoria === favorita) &&
+        (!subcategoria || p.subcategoria === subcategoria)
       )
     );
-  }, [productos, buscar, categoria, subcategoria, favorita]);
+  }, [productos, buscar, favorita, subcategoria]);
 
+  // Reset slider al cambiar filtros
   useEffect(() => {
     sliderRef.current?.slickGoTo(0);
-  }, [buscar, categoria, subcategoria, favorita, rows, sugerencias.length]);
+  }, [buscar, favorita, subcategoria, rows, sugerencias.length]);
 
-  // --- Handlers Carrito ---
+  // Subcategorías de la favorita
+  const subcategoriasNav = useMemo(() => {
+    if (!favorita) return [];
+    return Array.from(
+      new Set(
+        productos
+          .filter(p => p.categoria === favorita)
+          .map(p => p.subcategoria)
+          .filter(Boolean)
+      )
+    );
+  }, [productos, favorita]);
+
+  // --- Carrito handlers ---
   const agregarAlCarrito = p => {
     if (isSliding) return;
     const idx = carrito.findIndex(x => x.nombre === p.nombre);
@@ -104,14 +119,10 @@ export default function ProductosPOS() {
       setCarrito([...carrito, { ...p, cantidad: 1 }]);
     }
   };
-  const incrementar = i => { const c = [...carrito]; c[i].cantidad++; setCarrito(c); };
-  const decrementar = i => { const c = [...carrito]; if(c[i].cantidad>1) c[i].cantidad--; setCarrito(c); };
-  const setCantidad = (i, v) => { 
-    const c = [...carrito];
-    c[i].cantidad = v === '' ? '' : Math.max(1, parseInt(v,10));
-    setCarrito(c);
-  };
-  const eliminar = i => { const c = [...carrito]; c.splice(i,1); setCarrito(c); };
+  const incrementar = i => { const c=[...carrito]; c[i].cantidad++; setCarrito(c); };
+  const decrementar = i => { const c=[...carrito]; if(c[i].cantidad>1) c[i].cantidad--; setCarrito(c); };
+  const setCantidad = (i,v) => { const c=[...carrito]; c[i].cantidad = v===''?'':Math.max(1, parseInt(v,10)); setCarrito(c); };
+  const eliminar = i => { const c=[...carrito]; c.splice(i,1); setCarrito(c); };
   const clearAll = () => setCarrito([]);
 
   const total = carrito.reduce(
@@ -161,7 +172,7 @@ export default function ProductosPOS() {
   const handleClientSearch = () => {
     const clean = dniInput.replace(/\D/g,'');
     const found = clientes.find(c=>c.dni.replace(/\D/g,'')===clean);
-    if(found){
+    if (found) {
       setClientSuggestion(`Coincidencia: ${found.nombre} ${found.apellido}`);
       setClienteForm(found);
     } else {
@@ -171,31 +182,48 @@ export default function ProductosPOS() {
   const handleOpenCliente = () => setOpenCliente(true);
   const handleCloseCliente = () => setOpenCliente(false);
   const handleClienteChange = e => {
-    const {name,value} = e.target;
-    if(name==='dni') setDniInput(value);
+    const { name, value } = e.target;
+    if (name==='dni') setDniInput(value);
     setClienteForm(prev=>({...prev,[name]:value}));
     setClientSuggestion('');
   };
+
   const handleSaveCliente = () => {
-    const {nombre,apellido,dni,atendidoPor} = clienteForm;
-    if(!nombre||!apellido||!dni||!atendidoPor){
+    const { nombre, apellido, dni, atendidoPor } = clienteForm;
+    if (!nombre||!apellido||!dni||!atendidoPor) {
       alert('Completa todos los campos obligatorios');
       return;
     }
+    // Guardar local & en el Form
     localStorage.setItem('cliente', JSON.stringify(clienteForm));
+    setCliente(clienteForm);
+    handleCloseCliente();
+    const formUrl =
+      'https://docs.google.com/forms/d/e/1FAIpQLSeQEoCYnL9EYe3Rkx7qc0YQloLcdfEh6gLJ8ksnF5jg7BEUhQ/formResponse';
+    const formBody = new URLSearchParams();
+    formBody.append('entry.317969390', nombre);
+    formBody.append('entry.1978285982', apellido);
+    formBody.append('entry.283148133', dni);
+    formBody.append('entry.1504178591', clienteForm.telefono || '');
+    formBody.append('entry.795851642', clienteForm.email || '');
+    fetch(formUrl, { method: 'POST', mode: 'no-cors', body: formBody });
+  };
+
+  const handleAcceptCliente = () => {
+    // Solo cierra y acepta la ficha sin reinsertar
     setCliente(clienteForm);
     handleCloseCliente();
   };
 
   // --- Generar Remito / Presupuesto ---
   const handleGenerarRemito = () => {
-    if(!cliente.nombre){ handleOpenCliente(); return; }
+    if (!cliente.nombre) { handleOpenCliente(); return; }
     const num = generarNumeroRemito();
     const fecha = new Date().toLocaleDateString('es-AR');
     generarRemitoPDF(cliente, carrito, cliente.atendidoPor, num, fecha);
   };
   const handleGenerarPresupuesto = () => {
-    if(!cliente.nombre){ handleOpenCliente(); return; }
+    if (!cliente.nombre) { handleOpenCliente(); return; }
     const num = generarNumeroPresupuesto();
     const fecha = new Date().toLocaleDateString('es-AR');
     generarPresupuestoPDF(cliente, carrito, cliente.atendidoPor, num, fecha);
@@ -203,60 +231,38 @@ export default function ProductosPOS() {
 
   // --- Slider settings ---
   const settings = {
-    arrows: true,
-    infinite: false,
-    rows,
-    slidesPerRow: SLIDES_PER_ROW,
-    slidesToShow: 1,
-    slidesToScroll: 1,
-    speed: 600,
-    cssEase: 'ease-in-out',
+    arrows: true, infinite: false,
+    rows, slidesPerRow: SLIDES_PER_ROW,
+    slidesToShow: 1, slidesToScroll: 1,
+    speed: 600, cssEase: 'ease-in-out',
     beforeChange: () => setIsSliding(true),
-    afterChange:  () => setIsSliding(false),
+    afterChange: () => setIsSliding(false),
   };
 
   return (
     <Box>
-      {/* HEADER: búsqueda + filtros */}
+      {/* HEADER: búsqueda */}
       <Box sx={{
         position:'fixed', top:0,left:0,right:0,
         height:HEADER, bgcolor:'grey.900',
-        display:'flex', alignItems:'center', gap:1, px:2, zIndex:1200
+        display:'flex', alignItems:'center', px:2, zIndex:1200
       }}>
         <TextField
-          size="small" variant="outlined" placeholder="Buscar producto"
-          value={buscar} onChange={e=>setBuscar(e.target.value)}
-          InputProps={{ endAdornment:<InputAdornment position="end"><SearchIcon/></InputAdornment> }}
-          sx={{ flexGrow:1, bgcolor:'grey.800', borderRadius:1 }}
+          size="small" variant="outlined"
+          placeholder="Buscar producto"
+          value={buscar}
+          onChange={e=>setBuscar(e.target.value)}
+          InputProps={{
+            endAdornment:<InputAdornment position="end"><SearchIcon/></InputAdornment>
+          }}
+          sx={{ width:'28vw', bgcolor:'grey.800', borderRadius:1 }}
         />
-        <TextField
-          size="small" select label="Categoría"
-          value={categoria} onChange={e=>{setCategoria(e.target.value); setSubcategoria('');}}
-          sx={{ minWidth:120, bgcolor:'grey.800', borderRadius:1 }}
-        >
-          <MenuItem value="">Todas</MenuItem>
-          {Array.from(new Set(productos.map(p=>p.categoria).filter(Boolean)))
-            .map((c,i)=><MenuItem key={i} value={c}>{c}</MenuItem>)}
-        </TextField>
-        <TextField
-          size="small" select label="Subcategoría"
-          value={subcategoria} onChange={e=>setSubcategoria(e.target.value)}
-          disabled={!categoria}
-          sx={{ minWidth:120, bgcolor:'grey.800', borderRadius:1 }}
-        >
-          <MenuItem value="">Todas</MenuItem>
-          {Array.from(new Set(
-            productos.filter(p=>p.categoria===categoria)
-                    .map(p=>p.subcategoria)
-                    .filter(Boolean)
-          )).map((s,i)=><MenuItem key={i} value={s}>{s}</MenuItem>)}
-        </TextField>
       </Box>
 
       {/* CARRITO */}
       <Box sx={{
         position:'fixed', top:HEADER,bottom:FOOTER,left:0,
-        width:'30%', p:2, bgcolor:'grey.900',
+        width:'30vw', p:2, bgcolor:'grey.900',
         overflowY:'auto', zIndex:1000
       }}>
         <Carrito
@@ -272,36 +278,49 @@ export default function ProductosPOS() {
         />
       </Box>
 
-      {/* PRODUCTOS + NAVBAR CATEGORÍAS FAVORITAS */}
+      {/* PRODUCTOS + FAVORITAS + SUBCATEGORÍAS STICKY */}
       <Box sx={{
         position:'fixed', top:HEADER,bottom:FOOTER,
-        left:'30%', right:0, p:2,
-        bgcolor:'grey.800'
+        left:'30vw', right:0, bgcolor:'grey.800', overflowY:'auto'
       }}>
-        <Box sx={{ mb:2, display:'flex', gap:1, overflowX:'auto' }}>
-          <Button
-            size="small"
-            variant={!favorita ? 'contained' : 'outlined'}
-            sx={{ minWidth:'auto', px:1, py:0.5, fontSize:{ xs:'0.6rem', sm:'0.75rem' } }}
-            onClick={()=>setFavorita('')}
-          >
-            Todas
-          </Button>
-          {categoriasNav.map((cat,i)=>(
-            <Button
-              key={i}
-              size="small"
-              variant={favorita===cat ? 'contained' : 'outlined'}
-              sx={{ minWidth:'auto', px:1, py:0.5, fontSize:{ xs:'0.6rem', sm:'0.75rem' } }}
-              onClick={()=>setFavorita(cat)}
-            >
-              {cat}
-            </Button>
-          ))}
+        <Box sx={{
+          position:'sticky', top:0, zIndex:1300,
+          px:1, py:1, bgcolor:'grey.800'
+        }}>
+          <Box sx={{ display:'flex', gap:1, flexWrap:'wrap', mb: favorita?1:0 }}>
+            {categoriasNav.map((cat,i)=>(
+              <Button
+                key={i}
+                size="small"
+                variant={favorita===cat?'contained':'outlined'}
+                onClick={()=>{ setFavorita(favorita===cat?'':cat); setSubcategoria(''); }}
+              >
+                {cat}
+              </Button>
+            ))}
+          </Box>
+          {favorita && (
+            <Box sx={{
+              display:'flex', gap:1, flexWrap:'wrap',
+              px:1, py:0.5, bgcolor:'grey.700',
+              borderLeft:`4px solid ${theme.palette.primary.main}`
+            }}>
+              {['Todas', ...subcategoriasNav].map((sub,idx)=>(
+                <Button
+                  key={idx}
+                  size="small"
+                  variant={subcategoria===sub || (sub==='Todas' && !subcategoria)?'contained':'outlined'}
+                  onClick={()=>{ setSubcategoria(sub==='Todas'?'':sub); }}
+                >
+                  {sub}
+                </Button>
+              ))}
+            </Box>
+          )}
         </Box>
+
         <Slider ref={sliderRef} {...settings}>
           {sugerencias.map((p,i)=>(
-
             <Box key={i} sx={{ px:1, pb:`${ROW_GAP}px` }}>
               <Box
                 onClick={e=>{
@@ -309,22 +328,27 @@ export default function ProductosPOS() {
                   agregarAlCarrito(p);
                 }}
                 sx={{
-                  height:CARD_HEIGHT, bgcolor:'grey.700', borderRadius:1,
-                  p:1.5, display:'flex', flexDirection:'column',
+                  height:CARD_HEIGHT,
+                  bgcolor:'grey.700',
+                  borderRadius:1,
+                  p:1.5,
+                  display:'flex',
+                  flexDirection:'column',
                   justifyContent:'space-between',
                   cursor:isSliding?'default':'pointer',
                   '&:hover':{ bgcolor:!isSliding?'grey.600':'grey.700' }
                 }}
               >
-                {/* Nombre expresado íntegro y en varias líneas si hace falta */}
-                <Typography
-                  variant="subtitle1"
-                  sx={{ fontWeight:600, lineHeight:1.2, wordBreak:'break-word' }}
-                >
+                <Typography variant="subtitle1" sx={{
+                  fontWeight:600,
+                  lineHeight:1.2,
+                  whiteSpace:'nowrap',
+                  overflow:'hidden',
+                  textOverflow:'ellipsis'
+                }}>
                   {p.nombre}
                 </Typography>
-                <Box sx={{ flexGrow:1 }} />
-                <Typography variant="h6" sx={{ fontWeight:500, textAlign:'right' }}>
+                <Typography variant="h6" sx={{ fontWeight:500 }}>
                   ${(parseFloat(p.precio)||0).toFixed(2)}
                 </Typography>
               </Box>
@@ -356,33 +380,23 @@ export default function ProductosPOS() {
                 name="dni" label="DNI" value={dniInput}
                 onChange={handleClienteChange}
                 InputProps={{
-                  endAdornment:(
-                    <InputAdornment position="end">
-                      <IconButton onClick={handleClientSearch}>
-                        <SearchIcon/>
-                      </IconButton>
-                    </InputAdornment>
-                  )
+                  endAdornment:<InputAdornment position="end">
+                    <IconButton onClick={handleClientSearch}><SearchIcon/></IconButton>
+                  </InputAdornment>
                 }}
                 sx={{ bgcolor:'grey.800', borderRadius:1 }}
               />
               {clientSuggestion && (
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: clientSuggestion.startsWith('Coincidencia')
-                      ? 'success.main'
-                      : 'error.main',
-                    display:'block', mt:0.5
-                  }}
-                >
+                <Typography variant="caption" sx={{
+                  color: clientSuggestion.startsWith('Coincidencia')?'success.main':'error.main',
+                  display:'block', mt:0.5
+                }}>
                   {clientSuggestion}
                 </Typography>
               )}
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth size="small" variant="outlined" select
+              <TextField fullWidth size="small" variant="outlined" select
                 name="atendidoPor" label="Atendido por"
                 value={clienteForm.atendidoPor||''}
                 onChange={handleClienteChange}
@@ -393,8 +407,7 @@ export default function ProductosPOS() {
               </TextField>
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth size="small" variant="outlined"
+              <TextField fullWidth size="small" variant="outlined"
                 name="fechaRetiro" label="Fecha Retiro"
                 type="datetime-local" InputLabelProps={{ shrink:true }}
                 value={clienteForm.fechaRetiro||''}
@@ -406,7 +419,8 @@ export default function ProductosPOS() {
         </DialogContent>
         <DialogActions sx={{ bgcolor:'grey.900', px:3, pb:2 }}>
           <Button onClick={handleCloseCliente}>Cancelar</Button>
-          <Button variant="contained" onClick={handleSaveCliente}>Confirmar</Button>
+          <Button variant="outlined" onClick={handleAcceptCliente}>Aceptar</Button>
+          <Button variant="contained" onClick={handleSaveCliente}>Agregar cliente</Button>
         </DialogActions>
       </Dialog>
 
