@@ -1,133 +1,167 @@
 // src/utils/generarPresupuesto.js
+
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+// Ajusta la ruta si tu logo está en otro sitio
+import logoImg from "../assets/logo.png";
 
-/**
- * Genera un número único para el presupuesto.
- */
 export function generarNumeroPresupuesto() {
   const ahora = new Date();
-  return `PRES-${ahora.getFullYear()}${String(ahora.getMonth()+1).padStart(2,"0")}${String(ahora.getDate()).padStart(2,"0")}-${ahora.getTime()}`;
+  const dd = String(ahora.getDate()).padStart(2, '0');
+  const mm = String(ahora.getMonth() + 1).padStart(2, '0');
+  const yy = String(ahora.getFullYear()).slice(-2);
+  const fechaClave = `${dd}${mm}${yy}`;               // e.g. "140525"
+  const storageKey = `presupCounter_${fechaClave}`;
+
+  // Obtener el contador actual (o iniciar en 0)
+  let contador = parseInt(localStorage.getItem(storageKey) || '0', 10);
+  contador = Math.min(contador + 1, 1000);            // incrementa hasta 1000
+  localStorage.setItem(storageKey, String(contador));
+
+  return `${fechaClave}-${contador}`;                 // e.g. "140525-1"
 }
 
-/**
- * datosCliente: { nombre, apellido, dni, telefono, email }
- * items: [{ cantidad, descripcion, precioUnitario, subtotal }]
- * descuento: número (porcentaje, e.g. 20)
- * ivaPorc: número (porcentaje, e.g. 21)
- */
-export default async function generarPresupuestoPDF(
-  datosCliente,
-  items,
-  descuento,
-  ivaPorc,
+
+export default function generarPresupuestoPDF(
+  cliente,
+  productosSeleccionados,
+  atendidoPor,
   numeroPresupuesto,
   fechaEmision
 ) {
-  const doc = new jsPDF({ unit: "pt", format: "letter" });
-  const margin = 40;
-  let y = margin;
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const pageWidth = doc.internal.pageSize.getWidth();
 
-  // --- Encabezado con logo desde public/logo.png ---
-  // Cargamos la imagen para luego convertirla a base64
-  const img = new Image();
-  img.src = "/logo.png";
-  await new Promise(resolve => {
-    img.onload = resolve;
-    img.onerror = resolve;
-  });
-  // Dibujamos el logo (si cargó)
-  if (img.width) {
-    const logoWidth = 100;
-    const logoHeight = (img.height / img.width) * logoWidth;
-    doc.addImage(img, "PNG", margin, y, logoWidth, logoHeight);
-  }
+  // --- Encabezado ---
+  // Logo en la esquina superior izquierda
+  const logoWidth = 100;
+  const logoHeight = 40;
+  doc.addImage(logoImg, "PNG", 40, 40, logoWidth, logoHeight);
 
-  // Datos de empresa a la derecha del logo
-  doc.setFontSize(9);
-  const infoX = margin + 120;
-  doc.text("Seguí Rodando", infoX, y + 12);
-  doc.text("Tel: (011) 1234-5678", infoX, y + 24);
-  doc.text("CUIT: 30-12345678-9", infoX, y + 36);
-  doc.text("Cond. frente al IVA: Responsable Inscripto", infoX, y + 48);
-
-  // Número de presupuesto alineado a la derecha
-  doc.setFontSize(12);
-  doc.text(
-    `PRESUPUESTO: ${numeroPresupuesto}`,
-    doc.internal.pageSize.getWidth() - margin,
-    y + 24,
-    { align: "right" }
-  );
-  y += 80;
-
-  // --- Datos del cliente ---
+  // Título y número / fecha alineados a la derecha
+  doc.setFontSize(18);
+  doc.text("PRESUPUESTO", pageWidth - 40, 50, { align: "right" });
   doc.setFontSize(10);
-  doc.text(`Cliente: ${datosCliente.nombre} ${datosCliente.apellido}`, margin, y);
-  doc.text(`DNI/CUIT: ${datosCliente.dni}`, margin, y + 14);
-  doc.text(`Tel: ${datosCliente.telefono}`, margin + 250, y + 14);
-  doc.text(`Email: ${datosCliente.email}`, margin + 400, y + 14);
-  doc.text(`Fecha: ${fechaEmision}`, margin, y + 28);
-  y += 50;
+  doc.text(`N°: ${numeroPresupuesto}`, pageWidth - 40, 68, { align: "right" });
+  doc.text(`Fecha: ${fechaEmision}`, pageWidth - 40, 82, { align: "right" });
 
-  // --- Tabla de ítems ---
+  // Línea separadora
+  doc.setLineWidth(0.5);
+  doc.line(40, 100, pageWidth - 40, 100);
+
+  // --- Datos del Cliente ---
+  let y = 120;
+  doc.setFontSize(12);
+  doc.text("Cliente:", 40, y);
+  doc.setFontSize(10);
+  doc.text(`${cliente.nombre} ${cliente.apellido}`, 100, y);
+  y += 16;
+  doc.text("DNI:", 40, y);
+  doc.text(cliente.dni, 100, y);
+  y += 16;
+  doc.text("Email:", 40, y);
+  doc.text(cliente.email || "-", 100, y);
+  y += 16;
+  doc.text("Teléfono:", 40, y);
+  doc.text(cliente.telefono || "-", 100, y);
+  y += 24;
+
+  // --- Tabla de Productos ---
+  const tableColumnHeaders = [
+    "Descripción",
+    "Cant.",
+    "P.U.",
+    "Subtotal"
+  ];
+  const tableBody = productosSeleccionados.map((item) => {
+    const qty = parseInt(item.cantidad, 10) || 0;
+    const price = parseFloat(item.precio) || 0;
+    return [
+      item.nombre,
+      qty,
+      price.toFixed(2),
+      (qty * price).toFixed(2)
+    ];
+  });
+
   autoTable(doc, {
     startY: y,
-    head: [["Cant.", "Descripción", "P.Unitario", "Subtotal"]],
-    body: items.map(i => [
-      String(i.cantidad),
-      i.descripcion,
-      `$${i.precioUnitario.toFixed(2)}`,
-      `$${i.subtotal.toFixed(2)}`
-    ]),
-    styles: { fontSize: 9 },
-    headStyles: { fillColor: [200, 200, 200] },
-    margin: { left: margin, right: margin }
+    head: [tableColumnHeaders],
+    body: tableBody,
+    styles: { fontSize: 10 },
+    headStyles: { fillColor: [40, 40, 40] },
+    margin: { left: 40, right: 40 },
+    theme: "grid"
   });
 
+  // --- Cálculos de totales ---
   const finalY = doc.lastAutoTable.finalY + 20;
+  const totalBruto = productosSeleccionados.reduce(
+    (sum, item) =>
+      sum + (parseInt(item.cantidad, 10) || 0) * (parseFloat(item.precio) || 0),
+    0
+  );
 
-  // --- Totales, descuento e IVA desglosado ---
-  const subtotal = items.reduce((sum, i) => sum + i.subtotal, 0);
-  const montoDesc = subtotal * (descuento / 100);
-  const montoSinIVA = subtotal - montoDesc;
-  const montoIVA = montoSinIVA * (ivaPorc / 100);
-  const totalConIVA = montoSinIVA + montoIVA;
+  // Lee descuento aplicado de localStorage (0 si no existe)
+  const appliedDiscount =
+    parseFloat(localStorage.getItem("descuento")) || 0;
+  const descuentoMonto = (totalBruto * appliedDiscount) / 100;
+  const totalConDescuento = totalBruto - descuentoMonto;
+  const totalSinIVA = totalConDescuento / 1.21;
+  const ivaMonto = totalConDescuento - totalSinIVA;
 
   doc.setFontSize(10);
-  const tx = doc.internal.pageSize.getWidth() - margin - 150;
-  doc.text(`Subtotal:`, tx, finalY);
-  doc.text(`$${subtotal.toFixed(2)}`, tx + 100, finalY, { align: "right" });
-
-  doc.text(`Descuento (${descuento}%):`, tx, finalY + 14);
-  doc.text(`-$${montoDesc.toFixed(2)}`, tx + 100, finalY + 14, { align: "right" });
-
-  doc.text(`Total sin IVA:`, tx, finalY + 28);
-  doc.text(`$${montoSinIVA.toFixed(2)}`, tx + 100, finalY + 28, { align: "right" });
-
-  doc.text(`IVA (${ivaPorc}%):`, tx, finalY + 42);
-  doc.text(`$${montoIVA.toFixed(2)}`, tx + 100, finalY + 42, { align: "right" });
-
+  doc.text(
+    `Subtotal: $${totalBruto.toFixed(2)}`,
+    pageWidth - 40,
+    finalY,
+    { align: "right" }
+  );
+  if (appliedDiscount > 0) {
+    doc.text(
+      `Descuento (${appliedDiscount}%): -$${descuentoMonto.toFixed(2)}`,
+      pageWidth - 40,
+      finalY + 14,
+      { align: "right" }
+    );
+  }
+  doc.text(
+    `Total sin IVA: $${totalSinIVA.toFixed(2)}`,
+    pageWidth - 40,
+    finalY + 28,
+    { align: "right" }
+  );
+  doc.text(
+    `IVA 21%: $${ivaMonto.toFixed(2)}`,
+    pageWidth - 40,
+    finalY + 42,
+    { align: "right" }
+  );
   doc.setFontSize(12);
-  doc.text(`TOTAL CON IVA:`, tx, finalY + 66, { fontStyle: "bold" });
-  doc.text(`$${totalConIVA.toFixed(2)}`, tx + 100, finalY + 66, {
-    align: "right",
-    fontStyle: "bold"
-  });
+  doc.text(
+    `Total con IVA: $${totalConDescuento.toFixed(2)}`,
+    pageWidth - 40,
+    finalY + 60,
+    { align: "right" }
+  );
 
-  // --- Aclaraciones adicionales al pie ---
-  const aclarY = finalY + 100;
+  // --- Aclaraciones adicionales ---
+  const clarisY = finalY + 90;
+  doc.setFontSize(9);
+  doc.text("Aclaraciones:", 40, clarisY);
   doc.setFontSize(8);
   const aclaraciones = [
-    "Validez de la oferta: 20 días corridos desde la fecha de emisión.",
-    "Formas de pago: 50% al aceptar el presupuesto, 50% a la devolución del equipo.",
-    "El seguro y transporte no están incluidos en los valores aquí cotizados.",
-    "Reposición de equipo en caso de daño o pérdida por cuenta del cliente.",
-    "Excluye: traslados, guardias, consumibles y seguros especiales."
+    "- Validez del presupuesto: 30 días.",
+    "- Forma de pago: Contado / Transferencia bancaria.",
+    "- El presente presupuesto no incluye transporte.",
+    "- Precios sujetos a stock y disponibilidad."
   ];
   aclaraciones.forEach((line, i) => {
-    doc.text(line, margin, aclarY + i * 12);
+    doc.text(line, 60, clarisY + 14 + i * 12);
   });
 
-  doc.save(`Presupuesto_${numeroPresupuesto}.pdf`);
+  // Guarda el PDF
+
+doc.save(`${cliente.apellido}-${numeroPresupuesto}.pdf`);
+
 }
