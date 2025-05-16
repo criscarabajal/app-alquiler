@@ -1,119 +1,100 @@
 // src/utils/generarRemito.js
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import logoImg from "../assets/logo.png"; // ajusta la ruta si es necesario
 import { formatearFechaHora } from "./Fecha";
 
 export function generarNumeroRemito() {
   const ahora = new Date();
-  const timestamp = ahora.getTime();
-  return `SR-${timestamp}`;
+  const dd = String(ahora.getDate()).padStart(2, "0");
+  const mm = String(ahora.getMonth() + 1).padStart(2, "0");
+  const yy = String(ahora.getFullYear()).slice(-2);
+  const fecha = `${dd}${mm}${yy}`;
+  const contador = Math.floor(Math.random() * 1000) + 1;
+  return `${fecha}-${contador}`;
 }
 
 export default function generarRemitoPDF(
   cliente,
   productosSeleccionados,
   atendidoPor,
-  numeroRemito,
-  fechaEmision
+  numeroRemito
 ) {
-  const doc = new jsPDF();
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const margin = 40;
+  let y = margin;
 
-  // Encabezado
+  // --- Logo ---
+  const imgProps = doc.getImageProperties(logoImg);
+  const logoWidth = 100;
+  const logoHeight = (imgProps.height * logoWidth) / imgProps.width;
+  doc.addImage(logoImg, "PNG", margin, y, logoWidth, logoHeight);
+
+  // --- Título ---
   doc.setFontSize(18);
-  doc.text("Seguí Rodando", 14, 20);
+  doc.setFont("helvetica", "bold");
+  doc.text("Remito de Pedido", margin + logoWidth + 20, y + 20);
+
+  // --- Número Remito y Fecha ---
   doc.setFontSize(12);
-  doc.text(`REMITO ${numeroRemito}`, 200 - 14, 20, { align: "right" });
-  doc.line(14, 22, 200, 22);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Nº: ${numeroRemito}`, 500, y + 20, { align: "right" });
+  doc.text(`Fecha emisión: ${new Date().toLocaleDateString("es-AR")}`, 500, y + 36, { align: "right" });
 
-  // Datos del cliente
-  doc.setFontSize(10);
-  let y = 30;
-  doc.text(`Nombre: ${cliente.nombre} ${cliente.apellido}`, 14, y); 
-  y += 6;
-  doc.text(`DNI: ${cliente.dni}`, 14, y); 
-  y += 6;
-  doc.text(`Atendido por: ${atendidoPor}`, 14, y); 
-  y += 6;
-  if (cliente.fechaRetiro) {
-    doc.text(`Retiro: ${formatearFechaHora(new Date(cliente.fechaRetiro))}`, 14, y);
-    y += 6;
-  }
-  if (cliente.fechaDevolucion) {
-    doc.text(`Devolución: ${formatearFechaHora(new Date(cliente.fechaDevolucion))}`, 14, y);
-    y += 6;
-  }
-  doc.text(`Fecha emisión: ${fechaEmision}`, 14, y);
-  y += 10;
+  y += Math.max(logoHeight, 50) + 20;
 
-  // Agrupar productos por Categoría y Subcategoría
-  const groups = {};
-  productosSeleccionados.forEach((item) => {
-    const cat = item.categoria || "Sin categoría";
-    const sub = item.subcategoria || "Sin subcategoría";
-    if (!groups[cat]) groups[cat] = {};
-    if (!groups[cat][sub]) groups[cat][sub] = [];
-    groups[cat][sub].push(item);
-  });
+  // --- Datos Cliente ---
+  doc.setFont("helvetica", "normal");
+  doc.text(`Cliente: ${cliente.nombre} ${cliente.apellido}`, margin, y);
+  doc.text(`DNI: ${cliente.dni}`, margin, y + 14);
+  doc.text(`Atendido por: ${atendidoPor}`, margin, y + 28);
 
-  const bodyRows = [];
-  Object.entries(groups).forEach(([cat, subGroups]) => {
-    Object.entries(subGroups).forEach(([sub, items]) => {
-      bodyRows.push([
-        {
-          content: `Categoría: ${cat} - Subcategoría: ${sub}`,
-          colSpan: 6,
-          styles: { halign: 'left', fillColor: false, textColor: 0, fontStyle: 'bold' }
-        }
-      ]);
-      items.forEach((item) => {
-        bodyRows.push([
-          item.nombre,
-          item.categoria,
-          item.subcategoria,
-          item.cantidad,
-          `$${parseFloat(item.precio || 0).toFixed(2)}`,
-          `$${(parseFloat(item.precio || 0) * item.cantidad).toFixed(2)}`
-        ]);
-      });
-    });
-  });
+  y += 50;
+
+  // --- Cronograma del pedido ---
+  doc.setFont("helvetica", "bold");
+ 
+  doc.rect(margin, y - -10, 500, 100, "F");
+  doc.text("Cronograma del pedido", margin + 8, y + 5);
 
   autoTable(doc, {
-    startY: y,
-    head: [["Producto", "Categoría", "Subcategoría", "Cantidad", "Precio Unitario", "Subtotal"]],
-    body: bodyRows,
+    startY: y + 10,
     theme: "grid",
-    headStyles: { fillColor: false, textColor: 0, fontStyle: 'bold' },
-    styles: { fontSize: 3 },
+    head: [["Concepto", "Fecha y Hora"]],
+    headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0] },
+    body: [
+      ["Retiro", formatearFechaHora(new Date(cliente.fechaRetiro))],
+      ["Devolución", formatearFechaHora(new Date(cliente.fechaDevolucion))]
+    ],
+    styles: { fontSize: 7 },
+    margin: { left: margin, right: margin }
   });
 
-  const total = productosSeleccionados.reduce(
-    (acc, item) => acc + parseFloat(item.precio || 0) * item.cantidad,
-    0
-  );
-  const finalY = doc.lastAutoTable?.finalY || y + 10;
-  doc.setFontSize(3);
-  doc.text(`TOTAL: $${total.toFixed(2)}`, 150, finalY + 10);
+  y = doc.lastAutoTable.finalY + 0;
 
-  // Leer descuento desde localStorage y aplicarlo
-  const discountStored = localStorage.getItem('descuento');
-  console.log("Valor descuento en remito:", discountStored); // Depuración
-  let discountApplied = 0;
-  if (discountStored) {
-    discountApplied = parseFloat(discountStored);
-    if (isNaN(discountApplied)) discountApplied = 0;
-  }
-  if (discountApplied > 0) {
-    const discountAmount = total * (discountApplied / 100);
-    const finalTotal = total - discountAmount;
-    // Ajustamos la posición de estas líneas
-    doc.text(`Descuento (${discountApplied}%): -$${discountAmount.toFixed(2)}`, 14, finalY + 20);
-    doc.text(`TOTAL FINAL: $${finalTotal.toFixed(2)}`, 14, finalY + 30);
-  }
+  // --- Detalle de Productos ---
+  autoTable(doc, {
+    startY: y,
+    theme: "grid",
+    head: [["Producto", "Serial", "Cantidad"]],
+    headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0] },
+    body: productosSeleccionados.map(p => [
+      p.nombre,
+      p.serial || "-",
+      p.cantidad
+    ]),
+    styles: { fontSize: 7 },
+    margin: { left: margin, right: margin }
+  });
 
-  const yPie = doc.lastAutoTable?.finalY || finalY + 40;
-  doc.line(14, yPie + 10, 80, yPie + 10);
-  doc.text("Firma del cliente", 14, yPie + 15);
+  y = doc.lastAutoTable.finalY + 80;
 
-  doc.save(`remito-${cliente.apellido}-${cliente.nombre}.pdf`);
+  // --- Firma ---
+  doc.setDrawColor(0);
+  doc.setLineWidth(0.5);
+  doc.line(margin, y, margin + 150, y);
+  doc.text("Firma del cliente", margin, y + 14);
+
+  // --- Guardar ---
+  doc.save(`Remito_${cliente.apellido}_${numeroRemito}.pdf`);
 }

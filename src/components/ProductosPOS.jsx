@@ -187,30 +187,13 @@ export default function ProductosPOS() {
     setClienteForm(prev=>({...prev,[name]:value}));
     setClientSuggestion('');
   };
-
   const handleSaveCliente = () => {
     const { nombre, apellido, dni, atendidoPor } = clienteForm;
     if (!nombre||!apellido||!dni||!atendidoPor) {
       alert('Completa todos los campos obligatorios');
       return;
     }
-    // Guardar local & en el Form
     localStorage.setItem('cliente', JSON.stringify(clienteForm));
-    setCliente(clienteForm);
-    handleCloseCliente();
-    const formUrl =
-      'https://docs.google.com/forms/d/e/1FAIpQLSeQEoCYnL9EYe3Rkx7qc0YQloLcdfEh6gLJ8ksnF5jg7BEUhQ/formResponse';
-    const formBody = new URLSearchParams();
-    formBody.append('entry.317969390', nombre);
-    formBody.append('entry.1978285982', apellido);
-    formBody.append('entry.283148133', dni);
-    formBody.append('entry.1504178591', clienteForm.telefono || '');
-    formBody.append('entry.795851642', clienteForm.email || '');
-    fetch(formUrl, { method: 'POST', mode: 'no-cors', body: formBody });
-  };
-
-  const handleAcceptCliente = () => {
-    // Solo cierra y acepta la ficha sin reinsertar
     setCliente(clienteForm);
     handleCloseCliente();
   };
@@ -231,10 +214,14 @@ export default function ProductosPOS() {
 
   // --- Slider settings ---
   const settings = {
-    arrows: true, infinite: false,
-    rows, slidesPerRow: SLIDES_PER_ROW,
-    slidesToShow: 1, slidesToScroll: 1,
-    speed: 600, cssEase: 'ease-in-out',
+    arrows: true,
+    infinite: false,
+    rows,
+    slidesPerRow: SLIDES_PER_ROW,
+    slidesToShow: 1,
+    slidesToScroll: 1,
+    speed: 600,
+    cssEase: 'ease-in-out',
     beforeChange: () => setIsSliding(true),
     afterChange: () => setIsSliding(false),
   };
@@ -278,7 +265,7 @@ export default function ProductosPOS() {
         />
       </Box>
 
-      {/* PRODUCTOS + FAVORITAS + SUBCATEGORÍAS STICKY */}
+      {/* PRODUCTOS + FAVORITAS + SUBCATEGORÍAS */}
       <Box sx={{
         position:'fixed', top:HEADER,bottom:FOOTER,
         left:'30vw', right:0, bgcolor:'grey.800', overflowY:'auto'
@@ -290,8 +277,7 @@ export default function ProductosPOS() {
           <Box sx={{ display:'flex', gap:1, flexWrap:'wrap', mb: favorita?1:0 }}>
             {categoriasNav.map((cat,i)=>(
               <Button
-                key={i}
-                size="small"
+                key={i} size="small"
                 variant={favorita===cat?'contained':'outlined'}
                 onClick={()=>{ setFavorita(favorita===cat?'':cat); setSubcategoria(''); }}
               >
@@ -307,8 +293,7 @@ export default function ProductosPOS() {
             }}>
               {['Todas', ...subcategoriasNav].map((sub,idx)=>(
                 <Button
-                  key={idx}
-                  size="small"
+                  key={idx} size="small"
                   variant={subcategoria===sub || (sub==='Todas' && !subcategoria)?'contained':'outlined'}
                   onClick={()=>{ setSubcategoria(sub==='Todas'?'':sub); }}
                 >
@@ -339,13 +324,15 @@ export default function ProductosPOS() {
                   '&:hover':{ bgcolor:!isSliding?'grey.600':'grey.700' }
                 }}
               >
-                <Typography variant="subtitle1" sx={{
-                  fontWeight:600,
-                  lineHeight:1.2,
-                  whiteSpace:'nowrap',
-                  overflow:'hidden',
-                  textOverflow:'ellipsis'
-                }}>
+                <Typography
+                  variant="subtitle1"
+                  sx={{
+                    fontWeight:600,
+                    lineHeight:1.2,
+                    whiteSpace:'normal',
+                    wordBreak:'break-word'
+                  }}
+                >
                   {p.nombre}
                 </Typography>
                 <Typography variant="h6" sx={{ fontWeight:500 }}>
@@ -419,8 +406,7 @@ export default function ProductosPOS() {
         </DialogContent>
         <DialogActions sx={{ bgcolor:'grey.900', px:3, pb:2 }}>
           <Button onClick={handleCloseCliente}>Cancelar</Button>
-          <Button variant="outlined" onClick={handleAcceptCliente}>Aceptar</Button>
-          <Button variant="contained" onClick={handleSaveCliente}>Agregar cliente</Button>
+          <Button variant="contained" onClick={handleSaveCliente}>Confirmar</Button>
         </DialogActions>
       </Dialog>
 
