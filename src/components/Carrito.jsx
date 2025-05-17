@@ -1,4 +1,3 @@
-// src/components/Carrito.jsx
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -7,15 +6,16 @@ import {
   IconButton,
   List,
   ListItem,
-  ListItemText,
   Divider,
   Paper,
   Button,
   MenuItem,
-  useTheme,
-  useMediaQuery
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
-import { Add, Remove, Delete } from '@mui/icons-material';
+import { Add, Remove, Delete, MoreVert } from '@mui/icons-material';
 
 export default function Carrito({
   productosSeleccionados,
@@ -28,11 +28,9 @@ export default function Carrito({
   setComentario,
   onClearAll
 }) {
-  const theme = useTheme();
-  const isSm = useMediaQuery(theme.breakpoints.down('sm'));
-
   const [discount, setDiscount] = useState('0');
   const [appliedDiscount, setAppliedDiscount] = useState(0);
+  const [openIncludes, setOpenIncludes] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('descuento', JSON.stringify(appliedDiscount));
@@ -53,9 +51,8 @@ export default function Carrito({
 
   const discountAmount = total * (appliedDiscount / 100);
   const finalTotal = total - discountAmount;
-  const totalWithIva = finalTotal * 1.21; // IVA 21%
+  const totalWithIva = finalTotal * 1.21;
 
-  // Mostrar último agregado primero
   const ordenados = productosSeleccionados
     .map((p, i) => ({ p, i }))
     .reverse();
@@ -74,71 +71,76 @@ export default function Carrito({
         fontSize: '0.875rem'
       }}
     >
-      <Typography variant="h6" gutterBottom sx={{ fontSize: '1rem' }}>
-        Pedido
-      </Typography>
+      {/* Header con título y botón ... */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+        <Typography variant="h6" sx={{ fontSize: '1rem' }}>
+          Pedido
+        </Typography>
+        <IconButton size="small" onClick={() => setOpenIncludes(true)}>
+          <MoreVert sx={{ color: '#fff' }} />
+        </IconButton>
+      </Box>
 
       <List sx={{ flex: 1, overflowY: 'auto' }}>
         {ordenados.map(({ p: item, i: idx }) => (
           <React.Fragment key={idx}>
             <ListItem
               sx={{
-                bgcolor: '#2c2c2c',
-                borderRadius: 1,
-                mb: 1,
-                alignItems: 'flex-start',
-                py: 1
-              }}
-            >
-              <ListItemText
-                primary={
-                  <Typography
-                    sx={{
-                      fontSize: '0.875rem',
-                      wordBreak: 'break-word',
-                      whiteSpace: 'normal'
-                    }}
-                  >
-                    {item.nombre}
-                  </Typography>
-                }
-              />
-            </ListItem>
-
-            <Box
-              sx={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                px: 1,
-                mb: 1
+                bgcolor: '#2c2c2c',
+                borderRadius: 1,
+                mb: 1,
+                py: 1,
+                px: 1
               }}
             >
-              <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <Typography
+                sx={{
+                  fontSize: '0.825rem',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'wrap',
+                  flexGrow: 1
+                }}
+              >
+                {item.nombre}
+              </Typography>
+
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.1, ml: 1 }}>
                 <IconButton size="small" onClick={() => onDecrementar(idx)}>
-                  <Remove fontSize="small" />
+                  <Remove sx={{ fontSize: '1rem' }} />
                 </IconButton>
                 <TextField
                   value={item.cantidad}
                   onChange={(e) => onCantidadChange(idx, e.target.value)}
                   size="small"
                   inputProps={{
-                    style: { textAlign: 'center', fontSize: '0.875rem', padding: '4px' }
+                    style: {
+                      textAlign: 'center',
+                      fontSize: '0.75rem',
+                      padding: '1px 1px',
+                      width: '28px'
+                    }
                   }}
                   sx={{
-                    width: 48,
+                    minWidth: 32,
+                    maxWidth: 40,
                     bgcolor: '#2c2c2c',
-                    borderRadius: 1
+                    borderRadius: 1,
+                    '& .MuiInputBase-input': { padding: '2px 4px !important' }
                   }}
                 />
                 <IconButton size="small" onClick={() => onIncrementar(idx)}>
-                  <Add fontSize="small" />
+                  <Add sx={{ fontSize: '1rem' }} />
                 </IconButton>
               </Box>
+
               <IconButton size="small" color="error" onClick={() => onEliminar(idx)}>
-                <Delete fontSize="small" />
+                <Delete sx={{ fontSize: '1rem' }} />
               </IconButton>
-            </Box>
+            </ListItem>
 
             <Divider sx={{ borderColor: '#333', mb: 1 }} />
           </React.Fragment>
@@ -159,7 +161,6 @@ export default function Carrito({
             </Typography>
           </>
         )}
-        {/* Total con IVA */}
         <Typography sx={{ fontSize: '0.875rem', fontWeight: 'bold', mt: 1 }}>
           Total + IVA (21%): ${totalWithIva.toLocaleString(undefined, { minimumFractionDigits: 2 })}
         </Typography>
@@ -172,11 +173,7 @@ export default function Carrito({
           size="small"
           value={discount}
           onChange={(e) => setDiscount(e.target.value)}
-          sx={{
-            bgcolor: '#2c2c2c',
-            borderRadius: 1,
-            '& .MuiInputBase-input': { fontSize: '0.875rem' }
-          }}
+          sx={{ bgcolor: '#2c2c2c', borderRadius: 1, '& .MuiInputBase-input': { fontSize: '0.875rem' } }}
         >
           <MenuItem value="0">Ninguno</MenuItem>
           <MenuItem value="10">10%</MenuItem>
@@ -184,26 +181,37 @@ export default function Carrito({
           <MenuItem value="25">25%</MenuItem>
           <MenuItem value="especial">Especial</MenuItem>
         </TextField>
-        <Button
-          fullWidth
-          variant="contained"
-          size="small"
-          onClick={handleApplyDiscount}
-          sx={{ fontSize: '0.875rem' }}
-        >
+        <Button fullWidth variant="contained" size="small" onClick={handleApplyDiscount} sx={{ fontSize: '0.875rem' }}>
           Aplicar descuento
         </Button>
-        <Button
-          fullWidth
-          variant="outlined"
-          color="error"
-          size="small"
-          onClick={onClearAll}
-          sx={{ fontSize: '0.875rem' }}
-        >
+        <Button fullWidth variant="outlined" color="error" size="small" onClick={onClearAll} sx={{ fontSize: '0.875rem' }}>
           Borrar todo
         </Button>
       </Box>
+
+      {/* Dialog para mostrar "Incluye" */}
+      <Dialog open={openIncludes} onClose={() => setOpenIncludes(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Incluye</DialogTitle>
+        <DialogContent dividers>
+          {productosSeleccionados.length > 0 ? (
+            productosSeleccionados.map((item, idx) => (
+              <Box key={idx} sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                  {item.nombre}
+                </Typography>
+                <Typography variant="body2">
+                  {item.incluye || 'No hay información disponible.'}
+                </Typography>
+              </Box>
+            ))
+          ) : (
+            <Typography>No hay productos seleccionados.</Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenIncludes(false)}>Cerrar</Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   );
 }

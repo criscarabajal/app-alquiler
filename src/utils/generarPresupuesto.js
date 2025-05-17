@@ -151,10 +151,11 @@ export default function generarPresupuestoPDF(
   doc.text("Aclaraciones:", 40, clarisY);
   doc.setFontSize(8);
   const aclaraciones = [
-    "- Validez del presupuesto: 30 días.",
-    "- Forma de pago: Contado / Transferencia bancaria.",
-    "- El presente presupuesto no incluye transporte.",
-    "- Precios sujetos a stock y disponibilidad."
+    "Validez del presupuesto: 20 dias",
+    "Forma de pago: * Efectivo   * Mercadopago   * Transferencia bancaria",
+    "Seguro: Los equipos NO cuentan con seguro en tránsito",
+    "Reposición: En caso de Faltantes y/o daños en los equipos, el cliente es RESPONSABLE 100% de la REPOSICIÓN",
+    "Este presupuesto NO INCLUYE   SEGUROS / TRANSPORTE / GUARDIA"
   ];
   aclaraciones.forEach((line, i) => {
     doc.text(line, 60, clarisY + 14 + i * 12);
