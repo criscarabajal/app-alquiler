@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+// src/components/Carrito.jsx
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Typography,
@@ -24,6 +25,8 @@ export default function Carrito({
   onCantidadChange,
   onEliminar,
   total,
+  jornadasMap,
+  setJornadasMap,
   comentario,
   setComentario,
   onClearAll
@@ -49,8 +52,20 @@ export default function Carrito({
     setAppliedDiscount(pct);
   };
 
-  const discountAmount = total * (appliedDiscount / 100);
-  const finalTotal = total - discountAmount;
+  const handleAccept = () => {
+    setOpenIncludes(false);
+  };
+
+  // Recalcula total teniendo en cuenta unidades * precio * jornadas
+  const totalConJornadas = productosSeleccionados.reduce((sum, item, idx) => {
+    const qty = parseInt(item.cantidad, 10) || 0;
+    const j = parseInt(jornadasMap[idx], 10) || 1;
+    const price = parseFloat(item.precio) || 0;
+    return sum + qty * price * j;
+  }, 0);
+
+  const discountAmount = totalConJornadas * (appliedDiscount / 100);
+  const finalTotal = totalConJornadas - discountAmount;
   const totalWithIva = finalTotal * 1.21;
 
   const ordenados = productosSeleccionados
@@ -71,7 +86,6 @@ export default function Carrito({
         fontSize: '0.875rem'
       }}
     >
-      {/* Header con título y botón ... */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
         <Typography variant="h6" sx={{ fontSize: '1rem' }}>
           Pedido
@@ -101,7 +115,7 @@ export default function Carrito({
                   fontSize: '0.825rem',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
-                  whiteSpace: 'wrap',
+                  whiteSpace: 'nowrap',
                   flexGrow: 1
                 }}
               >
@@ -141,7 +155,6 @@ export default function Carrito({
                 <Delete sx={{ fontSize: '1rem' }} />
               </IconButton>
             </ListItem>
-
             <Divider sx={{ borderColor: '#333', mb: 1 }} />
           </React.Fragment>
         ))}
@@ -149,7 +162,7 @@ export default function Carrito({
 
       <Box mt={1} textAlign="right">
         <Typography sx={{ fontSize: '0.875rem' }}>
-          Total: ${total.toLocaleString()}
+          Subtotal: ${totalConJornadas.toLocaleString()}
         </Typography>
         {appliedDiscount > 0 && (
           <>
@@ -157,7 +170,7 @@ export default function Carrito({
               Descuento ({appliedDiscount}%): -${discountAmount.toLocaleString()}
             </Typography>
             <Typography sx={{ fontSize: '0.875rem', fontWeight: 'bold' }}>
-              Total Final: ${finalTotal.toLocaleString()}
+              Total: ${finalTotal.toLocaleString()}
             </Typography>
           </>
         )}
@@ -189,26 +202,94 @@ export default function Carrito({
         </Button>
       </Box>
 
-      {/* Dialog para mostrar "Incluye" */}
-      <Dialog open={openIncludes} onClose={() => setOpenIncludes(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Incluye</DialogTitle>
-        <DialogContent dividers>
+      <Dialog
+        open={openIncludes}
+        onClose={() => setOpenIncludes(false)}
+        maxWidth={false}
+        PaperProps={{
+          sx: {
+            width: '80vw',
+            height: '80vh'
+          }
+        }}
+      >
+        <DialogTitle>Detalles de productos</DialogTitle>
+        <DialogContent dividers sx={{ overflowY: 'auto' }}>
           {productosSeleccionados.length > 0 ? (
-            productosSeleccionados.map((item, idx) => (
-              <Box key={idx} sx={{ mb: 2 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                  {item.nombre}
-                </Typography>
-                <Typography variant="body2">
-                  {item.incluye || 'No hay información disponible.'}
-                </Typography>
-              </Box>
-            ))
+            productosSeleccionados.map((item, idx) => {
+              const j = jornadasMap[idx] || 1;
+              return (
+                <Box
+                  key={idx}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    mb: 2,
+                    p: 1,
+                    border: '1px solid #444',
+                    borderRadius: 1,
+                    bgcolor: '#2a2a2a'
+                  }}
+                >
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      {item.nombre}
+                    </Typography>
+                    <Typography variant="body2">
+                      {item.incluye || 'No hay información disponible.'}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="caption" sx={{ color: '#ccc' }}>Jornadas</Typography>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        border: '1px dashed #777',
+                        borderRadius: 1,
+                        p: '2px 4px',
+                        bgcolor: '#1e1e1e'
+                      }}
+                    >
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          setJornadasMap(prev => ({
+                            ...prev,
+                            [idx]: Math.max(1, (prev[idx] || 1) - 1)
+                          }))
+                        }
+                      >
+                        <Remove fontSize="small" />
+                      </IconButton>
+                      <Typography sx={{ mx: 0.5, fontSize: '0.875rem' }}>{j}</Typography>
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          setJornadasMap(prev => ({ ...prev, [idx]: (prev[idx] || 1) + 1 }))
+                        }
+                      >
+                        <Add fontSize="small" />
+                      </IconButton>
+                    </Box>
+                    <Typography variant="caption" sx={{ color: '#ccc' }}>Subtotal</Typography>
+                    <Typography sx={{ fontWeight: 600 }}>
+                      ${(item.precio * item.cantidad * j).toFixed(2)}
+                    </Typography>
+                  </Box>
+                </Box>
+              );
+            })
           ) : (
             <Typography>No hay productos seleccionados.</Typography>
           )}
         </DialogContent>
         <DialogActions>
+          <Button variant="contained" color="success" onClick={handleAccept}>
+            Aceptar
+          </Button>
           <Button onClick={() => setOpenIncludes(false)}>Cerrar</Button>
         </DialogActions>
       </Dialog>
