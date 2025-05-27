@@ -34,6 +34,7 @@ export default function Carrito({
   const [discount, setDiscount] = useState('0');
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [openIncludes, setOpenIncludes] = useState(false);
+  const [serialMap, setSerialMap] = useState({}); // <-- nuevo estado para seriales
 
   useEffect(() => {
     localStorage.setItem('descuento', JSON.stringify(appliedDiscount));
@@ -232,6 +233,7 @@ export default function Carrito({
                     bgcolor: '#2a2a2a'
                   }}
                 >
+                  {/* Información del producto */}
                   <Box>
                     <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                       {item.nombre}
@@ -241,6 +243,34 @@ export default function Carrito({
                     </Typography>
                   </Box>
 
+                  {/* Desplegable de Serial */}
+                  <Box sx={{ mx: 2 }}>
+                    <TextField
+                      select
+                      label="Serial"
+                      size="small"
+                      value={serialMap[idx] || ''}
+                      onChange={(e) =>
+                        setSerialMap(prev => ({ ...prev, [idx]: e.target.value }))
+                      }
+                      sx={{
+                        minWidth: 120,
+                        bgcolor: '#1e1e1e',
+                        borderRadius: 1,
+                        '& .MuiInputBase-input': { color: '#fff' }
+                      }}
+                    >
+                      {item.serial ? (
+                        <MenuItem value={item.serial}>{item.serial}</MenuItem>
+                      ) : (
+                        <MenuItem value="" disabled>
+                          No hay serial disponible
+                        </MenuItem>
+                      )}
+                    </TextField>
+                  </Box>
+
+                  {/* Jornadas y subtotal */}
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                     <Typography variant="caption" sx={{ color: '#ccc' }}>Jornadas</Typography>
                     <Box

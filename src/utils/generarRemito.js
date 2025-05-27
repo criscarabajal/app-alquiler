@@ -21,80 +21,139 @@ export default function generarRemitoPDF(
   numeroRemito
 ) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
-  const margin = 40;
-  let y = margin;
+  const W = doc.internal.pageSize.getWidth();
+  const M = 40; // margen
 
-  // --- Logo ---
+  // --- HEADER ---
   const imgProps = doc.getImageProperties(logoImg);
-  const logoWidth = 100;
-  const logoHeight = (imgProps.height * logoWidth) / imgProps.width;
-  doc.addImage(logoImg, "PNG", margin, y, logoWidth, logoHeight);
+  const logoW = 100;
+  const logoH = (imgProps.height * logoW) / imgProps.width;
+  doc.addImage(logoImg, "PNG", M, 20, logoW, logoH);
 
-  // --- Título ---
-  doc.setFontSize(18);
-  doc.setFont("helvetica", "bold");
-  doc.text("Remito de Pedido", margin + logoWidth + 20, y + 20);
+  // número remito
+  doc.setFontSize(16);
+  doc.text(`N° ${numeroRemito}`, W - M, 40, { align: "right" });
 
-  // --- Número Remito y Fecha ---
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "normal");
-  doc.text(`Nº: ${numeroRemito}`, 500, y + 20, { align: "right" });
-  doc.text(`Fecha emisión: ${new Date().toLocaleDateString("es-AR")}`, 500, y + 36, { align: "right" });
+  // --- DATOS CLIENTE / ATENCIÓN ---
+  doc.setFontSize(9);
+  doc.text(`CLIENTE: ${cliente.nombre || ""}`, M, 80);
+  doc.text(`D.N.I.: ${cliente.dni || ""}`, M, 95);
+  doc.text(`TEL: ${cliente.telefono || ""}`, M, 110);
 
-  y += Math.max(logoHeight, 50) + 20;
+  doc.text(`ATENDIDO: ${atendidoPor}`, W - M - 140, 80);
+  doc.text(`MESA ATENCIÓN:`, W - M - 140, 95);
+  doc.text(`HORA:`, W - M - 140, 110);
 
-  // --- Datos Cliente ---
-  doc.setFont("helvetica", "normal");
-  doc.text(`Cliente: ${cliente.nombre} ${cliente.apellido}`, margin, y);
-  doc.text(`DNI: ${cliente.dni}`, margin, y + 14);
-  doc.text(`Atendido por: ${atendidoPor}`, margin, y + 28);
+  // --- CRONOGRAMA DEL PEDIDO ---
+  doc.setFillColor(242, 242, 242);
+  doc.rect(M, 130, W - 2 * M, 18, "F");
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(10);
+  doc.text("CRONOGRAMA DEL PEDIDO", W / 2, 143, { align: "center" });
+  doc.setFontSize(9);
 
-  y += 50;
+  const retiro = formatearFechaHora(new Date(cliente.fechaRetiro || ""));
+  const devol = formatearFechaHora(new Date(cliente.fechaDevolucion || ""));
+  doc.text(`RETIRO: ${retiro}`, M, 160);
+  doc.text(`DEVOLUCIÓN: ${devol}`, M + 300, 160);
 
-  // --- Cronograma del pedido ---
-  doc.setFont("helvetica", "bold");
- 
-  doc.rect(margin, y - -10, 500, 100, "F");
-  doc.text("Cronograma del pedido", margin + 8, y + 5);
+  // --- TABLA DETALLE por categoría ---
+  let startY = 180;
+  const cols = [
+    { header: "Cantidad", dataKey: "cantidad" },
+    { header: "Detalle", dataKey: "detalle" },
+    { header: "N° de Serie", dataKey: "serie" },
+    { header: "Cod.", dataKey: "cod" }
+  ];
 
-  autoTable(doc, {
-    startY: y + 10,
-    theme: "grid",
-    head: [["Concepto", "Fecha y Hora"]],
-    headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0] },
-    body: [
-      ["Retiro", formatearFechaHora(new Date(cliente.fechaRetiro))],
-      ["Devolución", formatearFechaHora(new Date(cliente.fechaDevolucion))]
-    ],
-    styles: { fontSize: 7 },
-    margin: { left: margin, right: margin }
+  // Agrupar por categoría
+  const grupos = {};
+  productosSeleccionados.forEach(item => {
+    const cat = item.categoria || "Sin categoría";
+    if (!grupos[cat]) grupos[cat] = [];
+    grupos[cat].push(item);
   });
 
-  y = doc.lastAutoTable.finalY + 0;
-
-  // --- Detalle de Productos ---
-  autoTable(doc, {
-    startY: y,
-    theme: "grid",
-    head: [["Producto", "Serial", "Cantidad"]],
-    headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0] },
-    body: productosSeleccionados.map(p => [
-      p.nombre,
-      p.serial || "-",
-      p.cantidad
-    ]),
-    styles: { fontSize: 7 },
-    margin: { left: margin, right: margin }
+  const body = [];
+  Object.entries(grupos).forEach(([cat, items]) => {
+    body.push({ _category: cat });
+    items.forEach(i => {
+      const líneas = [i.nombre];
+      if (i.incluye) líneas.push(...i.incluye.split("\n"));
+      body.push({
+        cantidad: i.cantidad,
+        detalle: líneas.join("\n"),
+        serie: i.serial || "",
+        cod: ""
+      });
+    });
   });
 
-  y = doc.lastAutoTable.finalY + 80;
+  autoTable(doc, {
+    startY,
+    head: [cols.map(c => c.header)],
+    headStyles: {
+      fillColor: [230, 230, 230],
+      textColor: [0, 0, 0]
+    },
+    body: body.map(row =>
+      row._category
+        ? [{ content: row._category, colSpan: 4, styles: { fillColor: [235, 235, 235], fontStyle: "bold" } }]
+        : [row.cantidad, row.detalle, row.serie, row.cod]
+    ),
+    styles: { fontSize: 8, cellPadding: 2 },
+    margin: { left: M, right: M },
+    theme: "grid",
+    didParseCell: data => {
+      if (data.row.raw[0] && data.row.raw[1] === undefined) {
+        data.cell.colSpan = 4;
+        data.cell.styles.fillColor = [235, 235, 235];
+        data.cell.styles.fontStyle = "bold";
+      }
+    }
+  });
 
-  // --- Firma ---
-  doc.setDrawColor(0);
-  doc.setLineWidth(0.5);
-  doc.line(margin, y, margin + 150, y);
-  doc.text("Firma del cliente", margin, y + 14);
+  // --- PIE: cajas, precio, pago, firmas ---
+  const endY = doc.lastAutoTable.finalY + 20;
 
-  // --- Guardar ---
+  // cajas
+  doc.setFontSize(8);
+  doc.text("CAJAS PLÁSTICAS   |   CAJAS PELICAN   |   FUNDAS DE TELA", M, endY);
+
+  // PRECIO s/IVA
+  const totalSinIVA = productosSeleccionados.reduce((sum, i) => {
+    const price = parseFloat(i.precio) || 0;
+    return sum + price * i.cantidad;
+  }, 0);
+  const boxX = W - M - 150;
+  doc.rect(boxX, endY - 10, 150, 40);
+  doc.setFontSize(8);
+  doc.text("PRECIO s/IVA", boxX + 75, endY + 2, { align: "center" });
+  doc.setFontSize(10);
+  doc.text(`$${totalSinIVA.toFixed(2)}`, boxX + 75, endY + 18, { align: "center" });
+
+  // PAGO
+  doc.rect(boxX, endY + 35, 150, 70);
+  doc.setFontSize(8);
+  doc.text("PAGO", boxX + 75, endY + 50, { align: "center" });
+  doc.text("Efectivo [ ]", boxX + 5, endY + 65);
+  doc.text("MP Guido [ ]", boxX + 5, endY + 80);
+  doc.text("MP Jona [ ]", boxX + 5, endY + 95);
+
+  // firmas
+  const sigY = endY + 200;
+  const segment = (W - 2 * M) / 3;
+  ["FIRMA", "ACLARACIÓN", "D.N.I."].forEach((txt, i) => {
+    const x = M + i * segment;
+    doc.line(x, sigY, x + segment - 20, sigY);
+    doc.setFontSize(8);
+    doc.text(txt, x, sigY + 12);
+  });
+
+  // nota
+  doc.setFontSize(6);
+  doc.text("guardias no incluidas", M, sigY + 30);
+
+  // guardar
   doc.save(`Remito_${cliente.apellido}_${numeroRemito}.pdf`);
 }
