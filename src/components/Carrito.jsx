@@ -304,10 +304,7 @@ export default function Carrito({
                         <Add fontSize="small" />
                       </IconButton>
                     </Box>
-                    <Typography variant="caption" sx={{ color: '#ccc' }}>Subtotal</Typography>
-                    <Typography sx={{ fontWeight: 600 }}>
-                      ${(item.precio * item.cantidad * j).toFixed(2)}
-                    </Typography>
+                    
                   </Box>
                 </Box>
               );
