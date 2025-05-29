@@ -34,7 +34,7 @@ export default function Carrito({
   const [discount, setDiscount] = useState('0');
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [openIncludes, setOpenIncludes] = useState(false);
-  const [serialMap, setSerialMap] = useState({}); // <-- nuevo estado para seriales
+  const [serialMap, setSerialMap] = useState({}); // para seriales
 
   useEffect(() => {
     localStorage.setItem('descuento', JSON.stringify(appliedDiscount));
@@ -57,7 +57,7 @@ export default function Carrito({
     setOpenIncludes(false);
   };
 
-  // Recalcula total teniendo en cuenta unidades * precio * jornadas
+  // total con jornadas
   const totalConJornadas = productosSeleccionados.reduce((sum, item, idx) => {
     const qty = parseInt(item.cantidad, 10) || 0;
     const j = parseInt(jornadasMap[idx], 10) || 1;
@@ -223,9 +223,10 @@ export default function Carrito({
                 <Box
                   key={idx}
                   sx={{
-                    display: 'flex',
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 140px auto',
+                    columnGap: 2,
                     alignItems: 'center',
-                    justifyContent: 'space-between',
                     mb: 2,
                     p: 1,
                     border: '1px solid #444',
@@ -244,7 +245,7 @@ export default function Carrito({
                   </Box>
 
                   {/* Desplegable de Serial */}
-                  <Box sx={{ mx: 2 }}>
+                  <Box>
                     <TextField
                       select
                       label="Serial"
@@ -254,13 +255,17 @@ export default function Carrito({
                         setSerialMap(prev => ({ ...prev, [idx]: e.target.value }))
                       }
                       sx={{
-                        minWidth: 120,
+                        width: '100%',
                         bgcolor: '#1e1e1e',
                         borderRadius: 1,
                         '& .MuiInputBase-input': { color: '#fff' }
                       }}
                     >
-                      {item.serial ? (
+                      {Array.isArray(item.serial) && item.serial.length > 0 ? (
+                        item.serial.map(s => (
+                          <MenuItem key={s} value={s}>{s}</MenuItem>
+                        ))
+                      ) : item.serial ? (
                         <MenuItem value={item.serial}>{item.serial}</MenuItem>
                       ) : (
                         <MenuItem value="" disabled>
@@ -304,7 +309,6 @@ export default function Carrito({
                         <Add fontSize="small" />
                       </IconButton>
                     </Box>
-                    
                   </Box>
                 </Box>
               );
