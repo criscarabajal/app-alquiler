@@ -42,11 +42,7 @@ export default function BottomNav({
             Cancelar
           </Button>
         </Grid>
-        <Grid item xs={2}>
-          <Button fullWidth variant="contained" color="info" onClick={onBuscarPedido}>
-            Buscar Pedido
-          </Button>
-        </Grid>
+        
       </Grid>
     </Box>
   );

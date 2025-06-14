@@ -16,6 +16,7 @@ import {
   useTheme
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import Slider from 'react-slick';
 import Carrito from './Carrito';
 import BottomNav from './BottomNav';
@@ -25,6 +26,11 @@ import generarPresupuestoPDF, { generarNumeroPresupuesto } from '../utils/genera
 import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
 
+const defaultCats = [
+  'LUCES','GRIPERIA','TELAS','CAMARAS','LENTES',
+  'BATERIAS','MONITOREO','FILTROS','ACCESORIOS DE CAMARA','SONIDO'
+];
+
 export default function ProductosPOS() {
   const theme = useTheme();
   const HEADER = parseInt(theme.spacing(9), 10);
@@ -33,37 +39,37 @@ export default function ProductosPOS() {
   const ROW_GAP = 16;
   const SLIDES_PER_ROW = 5;
 
-  const categoriasNav = [
-    'LUCES','GRIPERIA','TELAS','CAMARAS','LENTES',
-    'BATERIAS','MONITOREO','FILTROS','ACCESORIOS DE CAMARA','SONIDO'
-  ];
+  const [categoriasNav, setCategoriasNav] = useState(() => {
+    const saved = localStorage.getItem('categoriasNav');
+    return saved ? JSON.parse(saved) : defaultCats;
+  });
+  useEffect(() => {
+    localStorage.setItem('categoriasNav', JSON.stringify(categoriasNav));
+  }, [categoriasNav]);
 
-  // --- Productos & filtros ---
+  const [openEditCats, setOpenEditCats] = useState(false);
+
   const [productos, setProductos] = useState([]);
   const [buscar, setBuscar] = useState('');
   const [favorita, setFavorita] = useState('');
   const [subcategoria, setSubcategoria] = useState('');
   const [sugerencias, setSugerencias] = useState([]);
 
-  // --- Carrito & jornadas ---
   const [carrito, setCarrito] = useState(() =>
     JSON.parse(localStorage.getItem('carrito') || '[]')
   );
   const [comentario, setComentario] = useState('');
   const [jornadasMap, setJornadasMap] = useState({});
 
-  // --- Slider responsive & estado sliding ---
   const [rows, setRows] = useState(1);
   const sliderRef = useRef(null);
   const [isSliding, setIsSliding] = useState(false);
-
   useEffect(() => setIsSliding(false), []);
 
   const calcularFilas = useCallback(() => {
     const alto = window.innerHeight - HEADER - FOOTER - ROW_GAP;
     setRows(Math.max(1, Math.floor(alto / (CARD_HEIGHT + ROW_GAP))));
   }, [HEADER, FOOTER]);
-
   useEffect(() => {
     calcularFilas();
     window.addEventListener('resize', calcularFilas);
@@ -75,11 +81,9 @@ export default function ProductosPOS() {
       .then(setProductos)
       .finally(() => setIsSliding(false));
   }, []);
-
   useEffect(() => {
     localStorage.setItem('carrito', JSON.stringify(carrito));
   }, [carrito]);
-
   useEffect(() => {
     setSugerencias(
       productos.filter(p =>
@@ -89,7 +93,6 @@ export default function ProductosPOS() {
       )
     );
   }, [productos, buscar, favorita, subcategoria]);
-
   useEffect(() => {
     sliderRef.current?.slickGoTo(0);
   }, [buscar, favorita, subcategoria, rows, sugerencias.length]);
@@ -106,7 +109,6 @@ export default function ProductosPOS() {
     );
   }, [productos, favorita]);
 
-  // --- Handlers carrito ---
   const agregarAlCarrito = p => {
     if (isSliding) return;
     const idx = carrito.findIndex(x => x.nombre === p.nombre);
@@ -118,18 +120,17 @@ export default function ProductosPOS() {
       setCarrito([...carrito, { ...p, cantidad: 1 }]);
     }
   };
-  const incrementar = i => { const c = [...carrito]; c[i].cantidad++; setCarrito(c); };
-  const decrementar = i => { const c = [...carrito]; if (c[i].cantidad > 1) c[i].cantidad--; setCarrito(c); };
-  const setCantidad = (i, v) => { const c = [...carrito]; c[i].cantidad = v === '' ? '' : Math.max(1, parseInt(v, 10)); setCarrito(c); };
-  const eliminar = i => { const c = [...carrito]; c.splice(i, 1); setCarrito(c); };
+  const incrementar = i => { const c=[...carrito]; c[i].cantidad++; setCarrito(c); };
+  const decrementar = i => { const c=[...carrito]; if(c[i].cantidad>1) c[i].cantidad--; setCarrito(c); };
+  const setCantidad = (i,v) => { const c=[...carrito]; c[i].cantidad = v===''?'':Math.max(1, parseInt(v,10)); setCarrito(c); };
+  const eliminar = i => { const c=[...carrito]; c.splice(i,1); setCarrito(c); };
   const clearAll = () => setCarrito([]);
 
   const total = carrito.reduce(
-    (s, x) => s + (parseFloat(x.precio) || 0) * (parseInt(x.cantidad, 10) || 0),
+    (s,x) => s + (parseFloat(x.precio)||0)*(parseInt(x.cantidad,10)||0),
     0
   );
 
-  // --- Cliente desde Sheets ---
   const [clientes, setClientes] = useState([]);
   useEffect(() => {
     const sheetId = '1DhpNyUyM-sTHuoucELtaDP3Ul5-JemSrw7uhnhohMZc';
@@ -137,37 +138,36 @@ export default function ProductosPOS() {
     fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?gid=${gid}&tq=${encodeURIComponent('SELECT *')}`)
       .then(r => r.text())
       .then(txt => {
-        const json = JSON.parse(txt.slice(txt.indexOf('(') + 1, -2));
-        const cols = json.table.cols.map(c => c.label.trim());
+        const json = JSON.parse(txt.slice(txt.indexOf('(')+1, -2));
+        const cols = json.table.cols.map(c=>c.label.trim());
         const idx = {
-          nombre: cols.findIndex(l => /nombre/i.test(l)),
-          apellido: cols.findIndex(l => /apellido/i.test(l)),
-          dni: cols.findIndex(l => /dni/i.test(l)),
-          telefono: cols.findIndex(l => /telefono/i.test(l)),
-          email: cols.findIndex(l => /email/i.test(l))
+          nombre: cols.findIndex(l=>/nombre/i.test(l)),
+          apellido: cols.findIndex(l=>/apellido/i.test(l)),
+          dni: cols.findIndex(l=>/dni/i.test(l)),
+          telefono: cols.findIndex(l=>/telefono/i.test(l)),
+          email: cols.findIndex(l=>/email/i.test(l))
         };
-        setClientes(json.table.rows.map(r => ({
-          nombre: r.c[idx.nombre]?.v || '',
-          apellido: r.c[idx.apellido]?.v || '',
-          dni: String(r.c[idx.dni]?.v || ''),
-          telefono: String(r.c[idx.telefono]?.v || ''),
-          email: r.c[idx.email]?.v || ''
+        setClientes(json.table.rows.map(r=>({
+          nombre: r.c[idx.nombre]?.v||'',
+          apellido: r.c[idx.apellido]?.v||'',
+          dni: String(r.c[idx.dni]?.v||''),
+          telefono: String(r.c[idx.telefono]?.v||''),
+          email: r.c[idx.email]?.v||''
         })));
       })
       .catch(console.error);
   }, []);
 
-  // --- Diálogo Cliente ---
   const [openCliente, setOpenCliente] = useState(false);
-  const [clienteForm, setClienteForm] = useState(JSON.parse(localStorage.getItem('cliente') || '{}'));
-  const [cliente, setCliente] = useState(JSON.parse(localStorage.getItem('cliente') || '{}'));
-  const [dniInput, setDniInput] = useState(clienteForm.dni || '');
+  const [clienteForm, setClienteForm] = useState(JSON.parse(localStorage.getItem('cliente')||'{}'));
+  const [cliente, setCliente] = useState(JSON.parse(localStorage.getItem('cliente')||'{}'));
+  const [dniInput, setDniInput] = useState(clienteForm.dni||'');
   const [clientSuggestion, setClientSuggestion] = useState('');
 
   const handleClientSearch = () => {
-    const clean = dniInput.replace(/\D/g, '');
-    const found = clientes.find(c => c.dni.replace(/\D/g, '') === clean);
-    if (found) {
+    const clean = dniInput.replace(/\D/g,'');
+    const found = clientes.find(c=>c.dni.replace(/\D/g,'')===clean);
+    if(found){
       setClientSuggestion(`Coincidencia: ${found.nombre} ${found.apellido}`);
       setClienteForm(found);
     } else {
@@ -178,36 +178,34 @@ export default function ProductosPOS() {
   const handleCloseCliente = () => setOpenCliente(false);
   const handleClienteChange = e => {
     const { name, value } = e.target;
-    if (name === 'dni') setDniInput(value);
-    setClienteForm(prev => ({ ...prev, [name]: value }));
+    if(name==='dni') setDniInput(value);
+    setClienteForm(prev=>({...prev,[name]:value}));
     setClientSuggestion('');
   };
   const handleSaveCliente = () => {
     const { nombre, apellido, dni, atendidoPor, fechaRetiro, fechaDevolucion } = clienteForm;
-    if (!nombre || !apellido || !dni || !atendidoPor || !fechaRetiro || !fechaDevolucion) {
+    if(!nombre||!apellido||!dni||!atendidoPor||!fechaRetiro||!fechaDevolucion){
       alert('Completa todos los campos obligatorios');
       return;
     }
-    localStorage.setItem('cliente', JSON.stringify(clienteForm));
+    localStorage.setItem('cliente',JSON.stringify(clienteForm));
     setCliente(clienteForm);
     handleCloseCliente();
   };
 
-  // --- Generar Remito / Presupuesto ---
   const handleGenerarRemito = () => {
-    if (!cliente.nombre) { handleOpenCliente(); return; }
+    if(!cliente.nombre){ handleOpenCliente(); return; }
     const num = generarNumeroRemito();
     const fecha = new Date().toLocaleDateString('es-AR');
     generarRemitoPDF(cliente, carrito, cliente.atendidoPor, num, fecha);
   };
   const handleGenerarPresupuesto = () => {
-    if (!cliente.nombre) { handleOpenCliente(); return; }
+    if(!cliente.nombre){ handleOpenCliente(); return; }
     const num = generarNumeroPresupuesto();
     const fecha = new Date().toLocaleDateString('es-AR');
     generarPresupuestoPDF(cliente, carrito, jornadasMap, cliente.atendidoPor, num, fecha);
   };
 
-  // --- Slider settings con fix for isSliding ---
   const settings = {
     arrows: true,
     infinite: false,
@@ -217,41 +215,36 @@ export default function ProductosPOS() {
     slidesToScroll: 1,
     speed: 600,
     cssEase: 'ease-in-out',
-    beforeChange: (oldIndex, newIndex) => {
-      if (oldIndex !== newIndex) {
-        setIsSliding(true);
-      }
-    },
-    afterChange: () => setIsSliding(false),
+    beforeChange: (o,n)=> o!==n && setIsSliding(true),
+    afterChange: ()=> setIsSliding(false),
+  };
+
+  const handleOpenEditCats = () => setOpenEditCats(true);
+  const handleCloseEditCats = () => setOpenEditCats(false);
+  const handleCatChange = (idx, val) => {
+    setCategoriasNav(cats => {
+      const copy = [...cats];
+      copy[idx] = val;
+      return copy;
+    });
   };
 
   return (
     <Box>
-      {/* HEADER: búsqueda */}
-      <Box sx={{
-        position:'fixed', top:0,left:0,right:0,
-        height:HEADER, bgcolor:'grey.900',
-        display:'flex', alignItems:'center', px:2, zIndex:1200
-      }}>
+      {/* HEADER */}
+      <Box sx={{ position:'fixed', top:0,left:0,right:0, height:HEADER, bgcolor:'grey.900',
+                 display:'flex', alignItems:'center', px:2, zIndex:1200 }}>
         <TextField
-          size="small"
-          variant="outlined"
-          placeholder="Buscar producto"
-          value={buscar}
-          onChange={e => setBuscar(e.target.value)}
-          InputProps={{
-            endAdornment: <InputAdornment position="end"><SearchIcon/></InputAdornment>
-          }}
+          size="small" variant="outlined" placeholder="Buscar producto"
+          value={buscar} onChange={e=>setBuscar(e.target.value)}
+          InputProps={{ endAdornment:<InputAdornment position="end"><SearchIcon/></InputAdornment>}}
           sx={{ width:'28vw', bgcolor:'grey.800', borderRadius:1 }}
         />
       </Box>
 
       {/* CARRITO */}
-      <Box sx={{
-        position:'fixed', top:HEADER,bottom:FOOTER,left:0,
-        width:'30vw', p:2, bgcolor:'grey.900',
-        overflowY:'auto', zIndex:1000
-      }}>
+      <Box sx={{ position:'fixed', top:HEADER,bottom:FOOTER,left:0,
+                 width:'30vw', p:2, bgcolor:'grey.900', overflowY:'auto', zIndex:1000 }}>
         <Carrito
           productosSeleccionados={carrito}
           onIncrementar={incrementar}
@@ -267,39 +260,50 @@ export default function ProductosPOS() {
         />
       </Box>
 
-      {/* PRODUCTOS + FAVORITAS + SUBCATEGORÍAS */}
-      <Box sx={{
-        position:'fixed', top:HEADER,bottom:FOOTER,
-        left:'30vw', right:0, bgcolor:'grey.800', overflowY:'auto'
-      }}>
-        <Box sx={{
-          position:'sticky', top:0, zIndex:1300,
-          px:1,py:1,bgcolor:'grey.800'
-        }}>
-          <Box sx={{ display:'flex', gap:1, flexWrap:'wrap', mb:favorita?1:0 }}>
+      {/* PRODUCTOS + FILTROS */}
+      <Box sx={{ position:'fixed', top:HEADER,bottom:FOOTER,left:'30vw',right:0,
+                 bgcolor:'grey.800', overflowY:'auto' }}>
+        <Box sx={{ position:'sticky', top:0, zIndex:1300, px:1,py:1,bgcolor:'grey.800' }}>
+          <Box sx={{ display:'flex', alignItems:'center', gap:1, flexWrap:'wrap', mb:favorita?1:0 }}>
+            <Button
+              size="small"
+              variant={!favorita?'contained':'outlined'}
+              onClick={()=>{ setFavorita(''); setSubcategoria(''); }}
+            >
+              Todas
+            </Button>
             {categoriasNav.map((cat,i)=>(
               <Button
-                key={i}
-                size="small"
+                key={i} size="small"
                 variant={favorita===cat?'contained':'outlined'}
                 onClick={()=>{ setFavorita(favorita===cat?'':cat); setSubcategoria(''); }}
               >
                 {cat}
               </Button>
             ))}
+            <IconButton size="small" sx={{ ml:'auto' }} onClick={handleOpenEditCats}>
+              <MoreVertIcon sx={{ color:'#fff' }}/>
+            </IconButton>
           </Box>
-          {favorita && (
+          {/* mostrar subcategorías SIEMPRE que haya alguna */}
+          {subcategoriasNav.length > 0 && (
             <Box sx={{
               display:'flex', gap:1, flexWrap:'wrap',
               px:1,py:0.5,bgcolor:'grey.700',
               borderLeft:`4px solid ${theme.palette.primary.main}`
             }}>
-              {['Todas', ...subcategoriasNav].map((sub,idx)=>(
+              <Button
+                size="small"
+                variant={!subcategoria?'contained':'outlined'}
+                onClick={()=>setSubcategoria('')}
+              >
+                Todas
+              </Button>
+              {subcategoriasNav.map((sub,idx)=>(
                 <Button
-                  key={idx}
-                  size="small"
-                  variant={subcategoria===sub||(sub==='Todas'&&!subcategoria)?'contained':'outlined'}
-                  onClick={()=>{ setSubcategoria(sub==='Todas'?'':sub); }}
+                  key={idx} size="small"
+                  variant={subcategoria===sub?'contained':'outlined'}
+                  onClick={()=>setSubcategoria(sub)}
                 >
                   {sub}
                 </Button>
@@ -308,7 +312,7 @@ export default function ProductosPOS() {
           )}
         </Box>
 
-        {/* Slider de productos */}
+        {/* Slider */}
         <Slider ref={sliderRef} {...settings}>
           {sugerencias.map((p,i)=>(
             <Box key={i} sx={{ px:1,pb:`${ROW_GAP}px` }}>
@@ -318,22 +322,14 @@ export default function ProductosPOS() {
                   agregarAlCarrito(p);
                 }}
                 sx={{
-                  height:CARD_HEIGHT,
-                  bgcolor:'grey.700',
-                  borderRadius:1,
-                  p:1.5,
-                  display:'flex',
-                  flexDirection:'column',
-                  justifyContent:'space-between',
+                  height:CARD_HEIGHT, bgcolor:'grey.700', borderRadius:1, p:1.5,
+                  display:'flex', flexDirection:'column', justifyContent:'space-between',
                   cursor:isSliding?'default':'pointer',
                   '&:hover':{ bgcolor:!isSliding?'grey.600':'grey.700' }
                 }}
               >
                 <Typography variant="subtitle1" sx={{
-                  fontWeight:600,
-                  lineHeight:1.2,
-                  whiteSpace:'normal',
-                  wordBreak:'break-word'
+                  fontWeight:600, lineHeight:1.2, whiteSpace:'normal', wordBreak:'break-word'
                 }}>
                   {p.nombre}
                 </Typography>
@@ -346,11 +342,34 @@ export default function ProductosPOS() {
         </Slider>
       </Box>
 
+      {/* EDITAR CATEGORÍAS */}
+      <Dialog open={openEditCats} onClose={handleCloseEditCats}>
+        <DialogTitle>Editar categorías</DialogTitle>
+        <DialogContent>
+          {categoriasNav.map((cat, idx) => (
+            <TextField
+              key={idx}
+              fullWidth
+              size="small"
+              variant="outlined"
+              label={`Categoría ${idx+1}`}
+              value={cat}
+              onChange={e => handleCatChange(idx, e.target.value)}
+              sx={{ mb: 2 }}
+            />
+          ))}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseEditCats} variant="contained">Guardar</Button>
+        </DialogActions>
+      </Dialog>
+
       {/* DIÁLOGO CLIENTE */}
       <Dialog open={openCliente} onClose={handleCloseCliente} fullWidth maxWidth="md">
         <DialogTitle>Datos del Cliente</DialogTitle>
         <DialogContent sx={{ bgcolor:'grey.900', color:'#fff', minHeight:400 }}>
           <Grid container spacing={3} sx={{ pt:2 }}>
+            {/* Campos del formulario (incluyendo fechaRetiro y fechaDevolucion) */}
             {['nombre','apellido','telefono','email'].map((f,idx)=>(
               <Grid item xs={12} sm={6} key={idx}>
                 <TextField
@@ -366,37 +385,6 @@ export default function ProductosPOS() {
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth size="small" variant="outlined"
-                name="dni" label="DNI" value={dniInput}
-                onChange={handleClienteChange}
-                InputProps={{
-                  endAdornment:<InputAdornment position="end">
-                    <IconButton onClick={handleClientSearch}><SearchIcon/></IconButton>
-                  </InputAdornment>
-                }}
-                sx={{ bgcolor:'grey.800', borderRadius:1 }}
-              />
-              {clientSuggestion && (
-                <Typography variant="caption" sx={{
-                  color: clientSuggestion.startsWith('Coincidencia')?'success.main':'error.main',
-                  display:'block', mt:0.5
-                }}>
-                  {clientSuggestion}
-                </Typography>
-              )}
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField fullWidth size="small" variant="outlined" select
-                name="atendidoPor" label="Atendido por"
-                value={clienteForm.atendidoPor||''}
-                onChange={handleClienteChange}
-                sx={{ bgcolor:'grey.800', borderRadius:1 }}
-              >
-                <MenuItem value="Matias">Matias</MenuItem>
-                <MenuItem value="Jhona">Jhona</MenuItem>
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField fullWidth size="small" variant="outlined"
                 name="fechaRetiro" label="Fecha Retiro"
                 type="datetime-local" InputLabelProps={{ shrink:true }}
                 value={clienteForm.fechaRetiro||''}
@@ -405,7 +393,8 @@ export default function ProductosPOS() {
               />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth size="small" variant="outlined"
+              <TextField
+                fullWidth size="small" variant="outlined"
                 name="fechaDevolucion" label="Fecha Devolución"
                 type="datetime-local" InputLabelProps={{ shrink:true }}
                 value={clienteForm.fechaDevolucion||''}
@@ -427,7 +416,7 @@ export default function ProductosPOS() {
         onGenerarRemito={handleGenerarRemito}
         onGenerarPresupuesto={handleGenerarPresupuesto}
         onCancelar={clearAll}
-        onBuscarPedido={() => {}}
+        onBuscarPedido={()=>{}}
       />
     </Box>
   );
