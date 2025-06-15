@@ -24,7 +24,6 @@ export default function Carrito({
   onDecrementar,
   onCantidadChange,
   onEliminar,
-  total,
   jornadasMap,
   setJornadasMap,
   comentario,
@@ -34,11 +33,24 @@ export default function Carrito({
   const [discount, setDiscount] = useState('0');
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [openIncludes, setOpenIncludes] = useState(false);
-  const [serialMap, setSerialMap] = useState({}); // para seriales
+  const [serialMap, setSerialMap] = useState({}); // para guardar selección de serial
 
+  // Guardar descuento
   useEffect(() => {
     localStorage.setItem('descuento', JSON.stringify(appliedDiscount));
   }, [appliedDiscount]);
+
+  // Inicializar serialMap al abrir detalles
+  useEffect(() => {
+    if (!openIncludes) return;
+    const init = {};
+    productosSeleccionados.forEach((item, idx) => {
+      // Cada item ya trae su array item.seriales
+      const opts = Array.isArray(item.seriales) ? item.seriales : [];
+      init[idx] = serialMap[idx] ?? opts[0] ?? '';
+    });
+    setSerialMap(init);
+  }, [openIncludes, productosSeleccionados, serialMap]);
 
   const handleApplyDiscount = () => {
     if (discount === 'especial') {
@@ -57,14 +69,13 @@ export default function Carrito({
     setOpenIncludes(false);
   };
 
-  // total con jornadas
+  // Cálculo de totales
   const totalConJornadas = productosSeleccionados.reduce((sum, item, idx) => {
     const qty = parseInt(item.cantidad, 10) || 0;
     const j = parseInt(jornadasMap[idx], 10) || 1;
     const price = parseFloat(item.precio) || 0;
     return sum + qty * price * j;
   }, 0);
-
   const discountAmount = totalConJornadas * (appliedDiscount / 100);
   const finalTotal = totalConJornadas - discountAmount;
   const totalWithIva = finalTotal * 1.21;
@@ -87,15 +98,15 @@ export default function Carrito({
         fontSize: '0.875rem'
       }}
     >
+      {/* Header pedido */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-        <Typography variant="h6" sx={{ fontSize: '1rem' }}>
-          Pedido
-        </Typography>
+        <Typography variant="h6" sx={{ fontSize: '1rem' }}>Pedido</Typography>
         <IconButton size="small" onClick={() => setOpenIncludes(true)}>
           <MoreVert sx={{ color: '#fff' }} />
         </IconButton>
       </Box>
 
+      {/* Lista de ítems */}
       <List sx={{ flex: 1, overflowY: 'auto' }}>
         {ordenados.map(({ p: item, i: idx }) => (
           <React.Fragment key={idx}>
@@ -122,72 +133,48 @@ export default function Carrito({
               >
                 {item.nombre}
               </Typography>
-
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.1, ml: 1 }}>
-                <IconButton size="small" onClick={() => onDecrementar(idx)}>
-                  <Remove sx={{ fontSize: '1rem' }} />
-                </IconButton>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <IconButton size="small" onClick={() => onDecrementar(idx)}><Remove /></IconButton>
                 <TextField
                   value={item.cantidad}
-                  onChange={(e) => onCantidadChange(idx, e.target.value)}
+                  onChange={e => onCantidadChange(idx, e.target.value)}
                   size="small"
-                  inputProps={{
-                    style: {
-                      textAlign: 'center',
-                      fontSize: '0.75rem',
-                      padding: '1px 1px',
-                      width: '28px'
-                    }
-                  }}
-                  sx={{
-                    minWidth: 32,
-                    maxWidth: 40,
-                    bgcolor: '#2c2c2c',
-                    borderRadius: 1,
-                    '& .MuiInputBase-input': { padding: '2px 4px !important' }
-                  }}
+                  inputProps={{ style: { textAlign: 'center', width: 32 } }}
+                  sx={{ bgcolor: '#2c2c2c', borderRadius: 1 }}
                 />
-                <IconButton size="small" onClick={() => onIncrementar(idx)}>
-                  <Add sx={{ fontSize: '1rem' }} />
-                </IconButton>
+                <IconButton size="small" onClick={() => onIncrementar(idx)}><Add /></IconButton>
+                <IconButton size="small" color="error" onClick={() => onEliminar(idx)}><Delete /></IconButton>
               </Box>
-
-              <IconButton size="small" color="error" onClick={() => onEliminar(idx)}>
-                <Delete sx={{ fontSize: '1rem' }} />
-              </IconButton>
             </ListItem>
             <Divider sx={{ borderColor: '#333', mb: 1 }} />
           </React.Fragment>
         ))}
       </List>
 
+      {/* Totales */}
       <Box mt={1} textAlign="right">
-        <Typography sx={{ fontSize: '0.875rem' }}>
-          Subtotal: ${totalConJornadas.toLocaleString()}
-        </Typography>
+        <Typography>Subtotal: ${totalConJornadas.toLocaleString()}</Typography>
         {appliedDiscount > 0 && (
           <>
-            <Typography sx={{ fontSize: '0.75rem' }}>
+            <Typography variant="body2">
               Descuento ({appliedDiscount}%): -${discountAmount.toLocaleString()}
             </Typography>
-            <Typography sx={{ fontSize: '0.875rem', fontWeight: 'bold' }}>
+            <Typography fontWeight="bold">
               Total: ${finalTotal.toLocaleString()}
             </Typography>
           </>
         )}
-        <Typography sx={{ fontSize: '0.875rem', fontWeight: 'bold', mt: 1 }}>
+        <Typography fontWeight="bold" mt={1}>
           Total + IVA (21%): ${totalWithIva.toLocaleString(undefined, { minimumFractionDigits: 2 })}
         </Typography>
       </Box>
 
-      <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+      {/* Descuento / borrar */}
+      <Box mt={2} display="flex" flexDirection="column" gap={1}>
         <TextField
-          select
-          label="Descuento"
-          size="small"
-          value={discount}
-          onChange={(e) => setDiscount(e.target.value)}
-          sx={{ bgcolor: '#2c2c2c', borderRadius: 1, '& .MuiInputBase-input': { fontSize: '0.875rem' } }}
+          select label="Descuento" size="small" value={discount}
+          onChange={e => setDiscount(e.target.value)}
+          sx={{ bgcolor: '#2c2c2c', borderRadius: 1 }}
         >
           <MenuItem value="0">Ninguno</MenuItem>
           <MenuItem value="10">10%</MenuItem>
@@ -195,30 +182,28 @@ export default function Carrito({
           <MenuItem value="25">25%</MenuItem>
           <MenuItem value="especial">Especial</MenuItem>
         </TextField>
-        <Button fullWidth variant="contained" size="small" onClick={handleApplyDiscount} sx={{ fontSize: '0.875rem' }}>
+        <Button variant="contained" size="small" onClick={handleApplyDiscount}>
           Aplicar descuento
         </Button>
-        <Button fullWidth variant="outlined" color="error" size="small" onClick={onClearAll} sx={{ fontSize: '0.875rem' }}>
+        <Button variant="outlined" color="error" size="small" onClick={onClearAll}>
           Borrar todo
         </Button>
       </Box>
 
+      {/* Diálogo Detalles de productos */}
       <Dialog
         open={openIncludes}
         onClose={() => setOpenIncludes(false)}
-        maxWidth={false}
-        PaperProps={{
-          sx: {
-            width: '80vw',
-            height: '80vh'
-          }
-        }}
+        maxWidth="lg"
+        PaperProps={{ sx: { width: '80vw', height: '80vh' } }}
       >
         <DialogTitle>Detalles de productos</DialogTitle>
         <DialogContent dividers sx={{ overflowY: 'auto' }}>
-          {productosSeleccionados.length > 0 ? (
+          {productosSeleccionados.length ? (
             productosSeleccionados.map((item, idx) => {
               const j = jornadasMap[idx] || 1;
+              // Usamos directamente item.seriales
+              const serialOptions = Array.isArray(item.seriales) ? item.seriales : [];
               return (
                 <Box
                   key={idx}
@@ -234,24 +219,19 @@ export default function Carrito({
                     bgcolor: '#2a2a2a'
                   }}
                 >
-                  {/* Información del producto */}
+                  {/* Info */}
                   <Box>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                      {item.nombre}
-                    </Typography>
-                    <Typography variant="body2">
-                      {item.incluye || 'No hay información disponible.'}
-                    </Typography>
+                    <Typography fontWeight={600}>{item.nombre}</Typography>
+                    <Typography variant="body2">{item.incluye || 'Sin info.'}</Typography>
                   </Box>
-
-                  {/* Desplegable de Serial */}
+                  {/* Selector de Serial */}
                   <Box>
                     <TextField
                       select
                       label="Serial"
                       size="small"
                       value={serialMap[idx] || ''}
-                      onChange={(e) =>
+                      onChange={e =>
                         setSerialMap(prev => ({ ...prev, [idx]: e.target.value }))
                       }
                       sx={{
@@ -261,53 +241,29 @@ export default function Carrito({
                         '& .MuiInputBase-input': { color: '#fff' }
                       }}
                     >
-                      {Array.isArray(item.serial) && item.serial.length > 0 ? (
-                        item.serial.map(s => (
-                          <MenuItem key={s} value={s}>{s}</MenuItem>
-                        ))
-                      ) : item.serial ? (
-                        <MenuItem value={item.serial}>{item.serial}</MenuItem>
-                      ) : (
-                        <MenuItem value="" disabled>
-                          No hay serial disponible
-                        </MenuItem>
-                      )}
+                      {serialOptions.length
+                        ? serialOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)
+                        : <MenuItem value="" disabled>No hay serial</MenuItem>
+                      }
                     </TextField>
                   </Box>
-
-                  {/* Jornadas y subtotal */}
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="caption" sx={{ color: '#ccc' }}>Jornadas</Typography>
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        border: '1px dashed #777',
-                        borderRadius: 1,
-                        p: '2px 4px',
-                        bgcolor: '#1e1e1e'
-                      }}
-                    >
-                      <IconButton
-                        size="small"
-                        onClick={() =>
-                          setJornadasMap(prev => ({
-                            ...prev,
-                            [idx]: Math.max(1, (prev[idx] || 1) - 1)
-                          }))
-                        }
-                      >
-                        <Remove fontSize="small" />
-                      </IconButton>
-                      <Typography sx={{ mx: 0.5, fontSize: '0.875rem' }}>{j}</Typography>
-                      <IconButton
-                        size="small"
-                        onClick={() =>
-                          setJornadasMap(prev => ({ ...prev, [idx]: (prev[idx] || 1) + 1 }))
-                        }
-                      >
-                        <Add fontSize="small" />
-                      </IconButton>
+                  {/* Jornadas */}
+                  <Box display="flex" flexDirection="column" alignItems="center">
+                    <Typography variant="caption" color="gray">Jornadas</Typography>
+                    <Box display="flex" alignItems="center" sx={{ border: '1px dashed gray', borderRadius:1, p: '2px 4px', bgcolor:'#1e1e1e' }}>
+                      <IconButton size="small" onClick={() =>
+                        setJornadasMap(prev => ({
+                          ...prev,
+                          [idx]: Math.max(1, (prev[idx]||1)-1)
+                        }))
+                      }><Remove fontSize="small" /></IconButton>
+                      <Typography mx={0.5}>{j}</Typography>
+                      <IconButton size="small" onClick={() =>
+                        setJornadasMap(prev => ({
+                          ...prev,
+                          [idx]: (prev[idx]||1)+1
+                        }))
+                      }><Add fontSize="small" /></IconButton>
                     </Box>
                   </Box>
                 </Box>

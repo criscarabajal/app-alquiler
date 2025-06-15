@@ -5,9 +5,8 @@ import { Box, Button, Grid } from '@mui/material';
 export default function BottomNav({
   onOpenCliente,
   onGenerarRemito,
-  onGenerarPresupuesto,  // ← nueva prop
-  onCancelar,
-  onBuscarPedido
+  onGenerarPresupuesto,
+  onCancelar
 }) {
   return (
     <Box
@@ -22,27 +21,26 @@ export default function BottomNav({
       }}
     >
       <Grid container spacing={2}>
-        <Grid item xs={2}>
+        <Grid item xs={3}>
           <Button fullWidth variant="contained" color="primary" onClick={onOpenCliente}>
             Cliente
           </Button>
         </Grid>
-        <Grid item xs={2}>
+        <Grid item xs={3}>
           <Button fullWidth variant="contained" color="success" onClick={onGenerarRemito}>
             Generar Remito
           </Button>
         </Grid>
-        <Grid item xs={2}>
+        <Grid item xs={3}>
           <Button fullWidth variant="contained" color="secondary" onClick={onGenerarPresupuesto}>
             Generar Presupuesto
           </Button>
         </Grid>
-        <Grid item xs={2}>
+        <Grid item xs={3}>
           <Button fullWidth variant="contained" color="error" onClick={onCancelar}>
             Cancelar
           </Button>
         </Grid>
-        
       </Grid>
     </Box>
   );
