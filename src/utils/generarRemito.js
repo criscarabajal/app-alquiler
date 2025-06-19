@@ -25,25 +25,21 @@ export default function generarRemitoPDF(
   const W = doc.internal.pageSize.getWidth();
   const M = 40; // margen
 
-  // Función auxiliar para dibujar el header en cada página
+  // --- Header con logos y número ---
   const drawHeader = () => {
-    // logo principal
     const imgProps = doc.getImageProperties(logoImg);
     const logoW = 100;
     const logoH = (imgProps.height * logoW) / imgProps.width;
     doc.addImage(logoImg, "PNG", M, 20, logoW, logoH);
 
-    // logo secundario "loch.jpeg"
     const lochProps = doc.getImageProperties(lochImg);
     const lochW = 60;
     const lochH = (lochProps.height * lochW) / lochProps.width;
     doc.addImage(lochImg, "JPEG", M + logoW + 10, 20, lochW, lochH);
 
-    // número remito
     doc.setFontSize(16);
     doc.text(`N° ${numeroRemito}`, W - M, 40, { align: "right" });
 
-    // Cronograma header bar
     doc.setFillColor(242, 242, 242);
     doc.rect(M, 80, W - 2 * M, 18, "F");
     doc.setTextColor(0, 0, 0);
@@ -51,39 +47,38 @@ export default function generarRemitoPDF(
     doc.text("CRONOGRAMA DEL PEDIDO", W / 2, 93, { align: "center" });
   };
 
-  // Datos del cliente / atención
+  // --- Datos del cliente y cronograma ---
   const drawClientData = () => {
     doc.setFontSize(9);
     doc.text(`CLIENTE: ${cliente.nombre || ""} ${cliente.apellido || ""}`, M, 110);
     doc.text(`D.N.I.: ${cliente.dni || ""}`, M, 125);
     doc.text(`TEL: ${cliente.telefono || ""}`, M, 140);
     doc.text(`ATENDIDO: ${atendidoPor}`, W - M - 140, 110);
-    doc.text(`MESA ATENCIÓN:`, W - M - 140, 125);
-    doc.text(`HORA:`, W - M - 140, 140);
-    // Cronograma detalles
+
     const retiro = formatearFechaHora(new Date(cliente.fechaRetiro || ""));
     const devol = formatearFechaHora(new Date(cliente.fechaDevolucion || ""));
     doc.text(`RETIRO: ${retiro}`, M, 160);
     doc.text(`DEVOLUCIÓN: ${devol}`, M + 300, 160);
   };
 
-  // Primero dibujamos header y datos antes de la tabla
   drawHeader();
   drawClientData();
 
-  // Preparar tabla de detalle
+  // --- Preparar cuerpo de la tabla ---
   const cols = [
     { header: "Cantidad", dataKey: "cantidad" },
     { header: "Detalle", dataKey: "detalle" },
     { header: "N° de Serie", dataKey: "serie" },
     { header: "Cod.", dataKey: "cod" }
   ];
+
   const grupos = {};
   productosSeleccionados.forEach(item => {
     const cat = item.categoria || "Sin categoría";
     if (!grupos[cat]) grupos[cat] = [];
     grupos[cat].push(item);
   });
+
   const body = [];
   Object.entries(grupos).forEach(([cat, items]) => {
     body.push({ _category: cat });
@@ -99,7 +94,6 @@ export default function generarRemitoPDF(
     });
   });
 
-  // Renderizar la tabla con autoTable y multi-page
   autoTable(doc, {
     startY: 180,
     margin: { top: 180, left: M, right: M },
@@ -121,13 +115,12 @@ export default function generarRemitoPDF(
     },
     pageBreak: 'auto',
     didDrawPage: () => {
-      // Re-dibujar header y datos en cada página
       drawHeader();
       drawClientData();
     }
   });
 
-  // Pie de página: precio sin IVA, pago, firmas
+  // --- Pie: precios, descuento y secciones ---
   const endY = doc.lastAutoTable.finalY + 20;
   doc.setFontSize(8);
   doc.text("CAJAS PLÁSTICAS   |   CAJAS PELICAN   |   FUNDAS DE TELA", M, endY);
@@ -137,22 +130,36 @@ export default function generarRemitoPDF(
     const price = parseFloat(i.precio) || 0;
     return sum + price * i.cantidad;
   }, 0);
+
+  // Leer descuento
+  const discountStored = parseFloat(localStorage.getItem('descuento')) || 0;
+  let yOffset = 0;
+  if (discountStored > 0) {
+    const discountAmount = totalSinIVA * (discountStored / 100);
+    const totalDesc = totalSinIVA - discountAmount;
+    doc.setFontSize(8);
+    doc.text(`Descuento (${discountStored}%): -$${discountAmount.toFixed(2)}`, M, endY + 12);
+    doc.text(`Total c/desc sin IVA: $${totalDesc.toFixed(2)}`, M, endY + 24);
+    yOffset = 24;
+  }
+
+  // Caja de PRECIO s/IVA
   const boxX = W - M - 150;
-  doc.rect(boxX, endY - 10, 150, 40);
+  doc.rect(boxX, endY - 10, 150, 40 + yOffset);
   doc.setFontSize(10);
   doc.text("PRECIO s/IVA", boxX + 75, endY + 2, { align: "center" });
   doc.setFontSize(8);
   doc.text(`$${totalSinIVA.toFixed(2)}`, boxX + 75, endY + 18, { align: "center" });
 
   // Sección de pago
-  doc.rect(boxX, endY + 35, 150, 70);
-  doc.text("PAGO", boxX + 75, endY + 50, { align: "center" });
-  doc.text("Efectivo [ ]", boxX + 5, endY + 65);
-  doc.text("MP Guido [ ]", boxX + 5, endY + 80);
-  doc.text("MP Jona [ ]", boxX + 5, endY + 95);
+  doc.rect(boxX, endY + 35 + yOffset, 150, 70);
+  doc.text("PAGO", boxX + 75, endY + 50 + yOffset, { align: "center" });
+  doc.text("Efectivo [ ]", boxX + 5, endY + 65 + yOffset);
+  doc.text("MP Guido [ ]", boxX + 5, endY + 80 + yOffset);
+  doc.text("MP Jona [ ]", boxX + 5, endY + 95 + yOffset);
 
   // Firmas
-  const sigY = endY + 200;
+  const sigY = endY + 200 + yOffset;
   const segment = (W - 2 * M) / 3;
   ["FIRMA", "ACLARACIÓN", "D.N.I."].forEach((txt, i) => {
     const x = M + i * segment;
@@ -165,6 +172,5 @@ export default function generarRemitoPDF(
   doc.setFontSize(6);
   doc.text("guardias no incluidas", M, sigY + 30);
 
-  // Guardar PDF
   doc.save(`Remito_${cliente.apellido}_${numeroRemito}.pdf`);
 }
