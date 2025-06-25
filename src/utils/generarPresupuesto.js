@@ -99,6 +99,7 @@ export default function generarPresupuestoPDF(
     return [item.nombre, qty, j, price.toFixed(2), subtotal.toFixed(2)];
   });
 
+  console.log("body de la tabla de presupuesto:", body);
   autoTable(doc, {
     startY: y,
     margin: { top: y, left: M, right: M },

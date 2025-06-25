@@ -29,6 +29,10 @@ export async function fetchProductos() {
       };
     });
 
+    console.log("Columnas detectadas en la hoja:", cols);
+     // raw es la respuesta sin mapear
+console.log("Primer producto parseado:", rows[0]);   
+
     return rows;
   } catch (error) {
     console.error("Error al cargar productos:", error);
