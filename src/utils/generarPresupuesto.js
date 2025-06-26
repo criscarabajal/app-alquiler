@@ -30,7 +30,6 @@ export default function generarPresupuestoPDF(
   cliente,
   productosSeleccionados,
   jornadasMap,
-  atendidoPor,
   numeroPresupuesto,
   fechaEmision
 ) {
@@ -81,7 +80,6 @@ export default function generarPresupuestoPDF(
     doc.text("Teléfono:", M, y);
     doc.text(cliente.telefono || "-", M + 60, y);
     y += 24;
-    doc.text(`Atendido por: ${atendidoPor}`, M, y);
     return y + 16;
   };
 

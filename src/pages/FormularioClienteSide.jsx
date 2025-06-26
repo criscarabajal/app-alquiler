@@ -20,7 +20,6 @@ export default function FormularioClienteSide() {
     dni: '',
     telefono: '',
     correo: '',
-    atendidoPor: 'Matias',
     fechaRetiro: null,
     fechaDevolucion: null,
   });
@@ -41,7 +40,6 @@ export default function FormularioClienteSide() {
       dni,
       telefono,
       correo,
-      atendidoPor,
       fechaRetiro,
       fechaDevolucion
     } = formData;
@@ -52,7 +50,6 @@ export default function FormularioClienteSide() {
       !dni ||
       !telefono ||
       !correo ||
-      !atendidoPor ||
       !fechaRetiro ||
       !fechaDevolucion
     ) {
@@ -72,8 +69,22 @@ export default function FormularioClienteSide() {
 
   return (
     <SingleColorLayout imageUrl="https://source.unsplash.com/random/?photography">
-      <Box sx={{ width: 400, bgcolor: 'grey.900', p: 4, borderRadius: 2 }}>
-        <Typography component="h1" variant="h4" gutterBottom>
+      <Box
+        sx={{
+          width: 400,
+          bgcolor: 'grey.900',
+          p: 6,               // aumento de padding
+          borderRadius: 2,
+          mx: 'auto',
+          my: 4
+        }}
+      >
+        <Typography
+          component="h1"
+          variant="h4"
+          gutterBottom
+          sx={{ mb: 3 }}       // más separación debajo del título
+        >
           Datos del Cliente
         </Typography>
 
@@ -123,20 +134,6 @@ export default function FormularioClienteSide() {
           value={formData.correo}
           onChange={handleChange}
         />
-        <TextField
-          margin="normal"
-          required
-          fullWidth
-          label="Atendido por"
-          name="atendidoPor"
-          select
-          SelectProps={{ native: true }}
-          value={formData.atendidoPor}
-          onChange={handleChange}
-        >
-          <option value="Matias">Matias</option>
-          <option value="Jhona">Jhona</option>
-        </TextField>
 
         <LocalizationProvider dateAdapter={AdapterDayjs}>
           <DateTimePicker
@@ -171,7 +168,7 @@ export default function FormularioClienteSide() {
         <Button
           fullWidth
           variant="contained"
-          sx={{ mt: 3, mb: 2, py: 2, fontSize: '1.1rem' }}
+          sx={{ mt: 4, mb: 2, py: 2, fontSize: '1.1rem' }}
           onClick={handleNext}
         >
           Siguiente
