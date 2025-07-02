@@ -26,14 +26,14 @@ export default function Carrito({
   onEliminar,
   jornadasMap,
   setJornadasMap,
-  comentario,
-  setComentario,
+  pedidoNumero,
+  setPedidoNumero,
   onClearAll
 }) {
   const [discount, setDiscount] = useState('0');
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [openIncludes, setOpenIncludes] = useState(false);
-  const [serialMap, setSerialMap] = useState({}); // para guardar selección de serial
+  const [serialMap, setSerialMap] = useState({});
 
   // Guardar descuento
   useEffect(() => {
@@ -45,12 +45,11 @@ export default function Carrito({
     if (!openIncludes) return;
     const init = {};
     productosSeleccionados.forEach((item, idx) => {
-      // Cada item ya trae su array item.seriales
       const opts = Array.isArray(item.seriales) ? item.seriales : [];
       init[idx] = serialMap[idx] ?? opts[0] ?? '';
     });
     setSerialMap(init);
-  }, [openIncludes, productosSeleccionados, serialMap]);
+  }, [openIncludes, productosSeleccionados]); // <-- serialMap removido de aquí
 
   const handleApplyDiscount = () => {
     if (discount === 'especial') {
@@ -65,9 +64,7 @@ export default function Carrito({
     setAppliedDiscount(pct);
   };
 
-  const handleAccept = () => {
-    setOpenIncludes(false);
-  };
+  const handleAccept = () => setOpenIncludes(false);
 
   // Cálculo de totales
   const totalConJornadas = productosSeleccionados.reduce((sum, item, idx) => {
@@ -100,7 +97,22 @@ export default function Carrito({
     >
       {/* Header pedido */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-        <Typography variant="h6" sx={{ fontSize: '1rem' }}>Pedido</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="h6" sx={{ fontSize: '1rem' }}>Pedido N°</Typography>
+          <TextField
+            size="small"
+            variant="outlined"
+            value={pedidoNumero}
+            onChange={e => setPedidoNumero(e.target.value)}
+            sx={{
+              width: 80,
+              bgcolor: '#2c2c2c',
+              borderRadius: 1,
+              '& .MuiInputBase-input': { color: '#fff', padding: '4px', textAlign: 'center' },
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#555' }
+            }}
+          />
+        </Box>
         <IconButton size="small" onClick={() => setOpenIncludes(true)}>
           <MoreVert sx={{ color: '#fff' }} />
         </IconButton>
@@ -156,12 +168,8 @@ export default function Carrito({
         <Typography>Subtotal: ${totalConJornadas.toLocaleString()}</Typography>
         {appliedDiscount > 0 && (
           <>
-            <Typography variant="body2">
-              Descuento ({appliedDiscount}%): -${discountAmount.toLocaleString()}
-            </Typography>
-            <Typography fontWeight="bold">
-              Total: ${finalTotal.toLocaleString()}
-            </Typography>
+            <Typography variant="body2">Descuento ({appliedDiscount}%): -${discountAmount.toLocaleString()}</Typography>
+            <Typography fontWeight="bold">Total: ${finalTotal.toLocaleString()}</Typography>
           </>
         )}
         <Typography fontWeight="bold" mt={1}>
@@ -172,7 +180,10 @@ export default function Carrito({
       {/* Descuento / borrar */}
       <Box mt={2} display="flex" flexDirection="column" gap={1}>
         <TextField
-          select label="Descuento" size="small" value={discount}
+          select
+          label="Descuento"
+          size="small"
+          value={discount}
           onChange={e => setDiscount(e.target.value)}
           sx={{ bgcolor: '#2c2c2c', borderRadius: 1 }}
         >
@@ -191,18 +202,12 @@ export default function Carrito({
       </Box>
 
       {/* Diálogo Detalles de productos */}
-      <Dialog
-        open={openIncludes}
-        onClose={() => setOpenIncludes(false)}
-        maxWidth="lg"
-        PaperProps={{ sx: { width: '80vw', height: '80vh' } }}
-      >
+      <Dialog open={openIncludes} onClose={() => setOpenIncludes(false)} maxWidth="lg" PaperProps={{ sx: { width: '80vw', height: '80vh' } }}>
         <DialogTitle>Detalles de productos</DialogTitle>
         <DialogContent dividers sx={{ overflowY: 'auto' }}>
           {productosSeleccionados.length ? (
             productosSeleccionados.map((item, idx) => {
               const j = jornadasMap[idx] || 1;
-              // Usamos directamente item.seriales
               const serialOptions = Array.isArray(item.seriales) ? item.seriales : [];
               return (
                 <Box
@@ -219,50 +224,22 @@ export default function Carrito({
                     bgcolor: '#2a2a2a'
                   }}
                 >
-                  {/* Info */}
                   <Box>
                     <Typography fontWeight={600}>{item.nombre}</Typography>
                     <Typography variant="body2">{item.incluye || 'Sin info.'}</Typography>
                   </Box>
-                  {/* Selector de Serial */}
                   <Box>
-                    <TextField
-                      select
-                      label="Serial"
-                      size="small"
-                      value={serialMap[idx] || ''}
-                      onChange={e =>
-                        setSerialMap(prev => ({ ...prev, [idx]: e.target.value }))
-                      }
-                      sx={{
-                        width: '100%',
-                        bgcolor: '#1e1e1e',
-                        borderRadius: 1,
-                        '& .MuiInputBase-input': { color: '#fff' }
-                      }}
-                    >
-                      {serialOptions.length
-                        ? serialOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)
-                        : <MenuItem value="" disabled>No hay serial</MenuItem>
-                      }
-                    </TextField>
+                   
                   </Box>
-                  {/* Jornadas */}
                   <Box display="flex" flexDirection="column" alignItems="center">
                     <Typography variant="caption" color="gray">Jornadas</Typography>
-                    <Box display="flex" alignItems="center" sx={{ border: '1px dashed gray', borderRadius:1, p: '2px 4px', bgcolor:'#1e1e1e' }}>
+                    <Box display="flex" alignItems="center" sx={{ border: '1px dashed gray', borderRadius: 1, p: '2px 4px', bgcolor: '#1e1e1e' }}>
                       <IconButton size="small" onClick={() =>
-                        setJornadasMap(prev => ({
-                          ...prev,
-                          [idx]: Math.max(1, (prev[idx]||1)-1)
-                        }))
+                        setJornadasMap(prev => ({ ...prev, [idx]: Math.max(1, (prev[idx]||1)-1) }))
                       }><Remove fontSize="small" /></IconButton>
                       <Typography mx={0.5}>{j}</Typography>
                       <IconButton size="small" onClick={() =>
-                        setJornadasMap(prev => ({
-                          ...prev,
-                          [idx]: (prev[idx]||1)+1
-                        }))
+                        setJornadasMap(prev => ({ ...prev, [idx]: (prev[idx]||1)+1 }))
                       }><Add fontSize="small" /></IconButton>
                     </Box>
                   </Box>
@@ -274,9 +251,7 @@ export default function Carrito({
           )}
         </DialogContent>
         <DialogActions>
-          <Button variant="contained" color="success" onClick={handleAccept}>
-            Aceptar
-          </Button>
+          <Button variant="contained" color="success" onClick={handleAccept}>Aceptar</Button>
           <Button onClick={() => setOpenIncludes(false)}>Cerrar</Button>
         </DialogActions>
       </Dialog>

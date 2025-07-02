@@ -1,8 +1,8 @@
 // src/utils/generarRemito.js
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import logoImg from "../assets/logo.png";      // logo principal
-import lochImg from "../assets/loch.jpeg";     // logo secundario
+import logoImg from "../assets/logo.png";
+import lochImg from "../assets/loch.jpeg";
 import { formatearFechaHora } from "./Fecha";
 
 export function generarNumeroRemito() {
@@ -19,24 +19,41 @@ export default function generarRemitoPDF(
   cliente,
   productosSeleccionados,
   atendidoPor,
-  numeroRemito
+  numeroRemito,
+  pedidoNumero = ""    // <— si no llega, queda string vacío
 ) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
-  const M = 40; // margen
+  const M = 40;
 
-  // ——— header por página ———
+  // ——— HEADER ———
   const drawHeader = () => {
-    const imgProps = doc.getImageProperties(logoImg);
+    // logos
+    const imgP = doc.getImageProperties(logoImg);
     const logoW = 100;
-    const logoH = (imgProps.height * logoW) / imgProps.width;
+    const logoH = (imgP.height * logoW) / imgP.width;
     doc.addImage(logoImg, "PNG", M, 20, logoW, logoH);
-    const lochProps = doc.getImageProperties(lochImg);
+
+    const lochP = doc.getImageProperties(lochImg);
     const lochW = 60;
-    const lochH = (lochProps.height * lochW) / lochProps.width;
+    const lochH = (lochP.height * lochW) / lochP.width;
     doc.addImage(lochImg, "JPEG", M + logoW + 10, 20, lochW, lochH);
+
+    // N° remito
     doc.setFontSize(16);
-    doc.text(`N° ${numeroRemito}`, W - M, 40, { align: "right" });
+    doc.text(`${numeroRemito}`, W - M, 40, { align: "right" });
+
+    // Pedido N°
+    doc.setFontSize(10);
+    doc.text(
+      `Pedido N°: ${pedidoNumero || ""}`,
+      W - M,
+      88,
+      { align: "right" }
+    );
+    doc.setFontSize(16);
+
+    // título
     doc.setFillColor(242, 242, 242);
     doc.rect(M, 80, W - 2 * M, 18, "F");
     doc.setTextColor(0, 0, 0);
@@ -44,21 +61,30 @@ export default function generarRemitoPDF(
     doc.text("CRONOGRAMA DEL PEDIDO", W / 2, 93, { align: "center" });
   };
 
-  // ——— datos del cliente ———
+  // ——— DATOS CLIENTE ———
   const drawClientData = () => {
     doc.setFontSize(9);
     doc.text(`CLIENTE: ${cliente.nombre || ""} ${cliente.apellido || ""}`, M, 110);
     doc.text(`D.N.I.: ${cliente.dni || ""}`, M, 125);
     doc.text(`TEL: ${cliente.telefono || ""}`, M, 140);
     doc.text(`ATENDIDO: ${atendidoPor}`, W - M - 140, 110);
-    doc.text(`RETIRO: ${formatearFechaHora(new Date(cliente.fechaRetiro || ""))}`, M, 160);
-    doc.text(`DEVOLUCIÓN: ${formatearFechaHora(new Date(cliente.fechaDevolucion || ""))}`, M + 300, 160);
+    doc.text(
+      `RETIRO: ${formatearFechaHora(new Date(cliente.fechaRetiro || ""))}`,
+      M,
+      160
+    );
+    doc.text(
+      `DEVOLUCIÓN: ${formatearFechaHora(new Date(cliente.fechaDevolucion || ""))}`,
+      M + 300,
+      160
+    );
   };
 
+  // primera página
   drawHeader();
   drawClientData();
 
-  // ——— tabla de items ———
+  // ——— TABLA ITEMS ———
   const cols = [
     { header: "Cantidad", dataKey: "cantidad" },
     { header: "Detalle", dataKey: "detalle" },
@@ -71,6 +97,7 @@ export default function generarRemitoPDF(
     if (!grupos[cat]) grupos[cat] = [];
     grupos[cat].push(item);
   });
+
   const body = [];
   Object.entries(grupos).forEach(([cat, items]) => {
     body.push({ _category: cat });
@@ -92,7 +119,11 @@ export default function generarRemitoPDF(
     head: [cols.map(c => c.header)],
     body: body.map(row =>
       row._category
-        ? [{ content: row._category, colSpan: 4, styles: { fillColor: [235, 235, 235], fontStyle: "bold" } }]
+        ? [{
+            content: row._category,
+            colSpan: 4,
+            styles: { fillColor: [235, 235, 235], fontStyle: "bold" }
+          }]
         : [row.cantidad, row.detalle, row.serie, row.cod]
     ),
     styles: { fontSize: 8, cellPadding: 2 },
@@ -105,47 +136,34 @@ export default function generarRemitoPDF(
         data.cell.styles.fontStyle = "bold";
       }
     },
-    pageBreak: 'auto',
     didDrawPage: () => {
       drawHeader();
       drawClientData();
     }
   });
 
-  // ——— precio y descuento ———
+  // ——— PIE DE PÁGINA (precio, descuento, firmas) ———
   const endY = doc.lastAutoTable.finalY + 20;
-  // total sin IVA antes descuento
   const totalSinIVA = productosSeleccionados.reduce(
     (sum, i) => sum + (parseFloat(i.precio) || 0) * i.cantidad,
     0
   );
-  // descuento (%) guardado en localStorage
-  const appliedDiscount = parseFloat(localStorage.getItem('descuento')) || 0;
+  const appliedDiscount = parseFloat(localStorage.getItem("descuento")) || 0;
   const totalConDescuento = totalSinIVA * (1 - appliedDiscount / 100);
 
-  // dibujar recuadro
   const boxX = W - M - 150;
-  // altura mayor si hay descuento para dos líneas
   const boxH = appliedDiscount > 0 ? 60 : 40;
   doc.rect(boxX, endY - 10, 150, boxH);
 
-  // etiqueta
   doc.setFontSize(10);
   doc.text("PRECIO s/IVA", boxX + 75, endY + 2, { align: "center" });
-
-  // descuento y precio con mismo tamaño
-  doc.setFontSize(10);
   if (appliedDiscount > 0) {
-    // línea de descuento
-    doc.text(`Descuento ${appliedDiscount.toFixed(0)}%`, boxX + 75, endY + 20, { align: "center" });
-    // línea de total con descuento
+    doc.text(`Descuento ${appliedDiscount}%`, boxX + 75, endY + 20, { align: "center" });
     doc.text(`$${totalConDescuento.toFixed(2)}`, boxX + 75, endY + 38, { align: "center" });
   } else {
-    // precio normal
     doc.text(`$${totalSinIVA.toFixed(2)}`, boxX + 75, endY + 20, { align: "center" });
   }
 
-  // ——— resto del pie (pago y firmas) ———
   doc.rect(boxX, endY + boxH + 10, 150, 70);
   doc.text("PAGO", boxX + 75, endY + boxH + 25, { align: "center" });
   doc.text("Efectivo [ ]", boxX + 5, endY + boxH + 40);
@@ -164,6 +182,5 @@ export default function generarRemitoPDF(
   doc.setFontSize(6);
   doc.text("guardias no incluidas", M, sigY + 30);
 
-  // guardar
   doc.save(`Remito_${cliente.apellido}_${numeroRemito}.pdf`);
 }

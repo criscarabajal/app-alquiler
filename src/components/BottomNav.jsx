@@ -51,14 +51,7 @@ export default function BottomNav({
           </Button>
         </Grid>
         <Grid item xs={3}>
-          <Button
-            fullWidth
-            variant="contained"
-            color="error"
-            onClick={onCancelar}
-          >
-            Cancelar
-          </Button>
+
         </Grid>
       </Grid>
     </Box>
