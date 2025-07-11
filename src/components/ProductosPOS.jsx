@@ -27,9 +27,9 @@ import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
 
 const defaultCats = [
-  'LUCES', 'GRIPERIA', 'TELAS', 'CAMARAS',
-  'LENTES', 'BATERIAS', 'MONITOREO', 'FILTROS',
-  'ACCESORIOS DE CAMARA', 'SONIDO'
+  'LUCES','GRIPERIA','TELAS','CAMARAS',
+  'LENTES','BATERIAS','MONITOREO','FILTROS',
+  'ACCESORIOS DE CAMARA','SONIDO'
 ];
 
 export default function ProductosPOS() {
@@ -40,40 +40,25 @@ export default function ProductosPOS() {
   const ROW_GAP = 16;
   const SLIDES_PER_ROW = 5;
 
-  // Estado para número de pedido
+  // pedido número y jornadas
   const [pedidoNumero, setPedidoNumero] = useState('');
-
-  // jornadas (necesario para presupuesto)
   const [jornadasMap, setJornadasMap] = useState({});
 
-  // Estado carrito
-  const [carrito, setCarrito] = useState(() =>
-    JSON.parse(localStorage.getItem('carrito') || '[]')
-  );
+  // carrito
+  const [carrito, setCarrito] = useState(() => JSON.parse(localStorage.getItem('carrito') || '[]'));
   useEffect(() => {
     localStorage.setItem('carrito', JSON.stringify(carrito));
   }, [carrito]);
 
-  // Estado cliente
-  const initialClienteForm = { nombre: '', apellido: '', telefono: '', correo: '', fechaRetiro: '', fechaDevolucion: '', dni: '' };
-  const [clienteForm, setClienteForm] = useState(
-    JSON.parse(localStorage.getItem('cliente')) || initialClienteForm
-  );
-  const [cliente, setCliente] = useState(
-    JSON.parse(localStorage.getItem('cliente')) || {}
-  );
+  // cliente
+  const initialClienteForm = { nombre:'', apellido:'', telefono:'', correo:'', fechaRetiro:'', fechaDevolucion:'', dni:'' };
+  const [clienteForm, setClienteForm] = useState(JSON.parse(localStorage.getItem('cliente')) || initialClienteForm);
+  const [cliente, setCliente] = useState(JSON.parse(localStorage.getItem('cliente')) || {});
   const [openCliente, setOpenCliente] = useState(false);
-
   const handleOpenCliente = () => setOpenCliente(true);
   const clearClienteForm = () => setClienteForm(initialClienteForm);
-  const handleCloseCliente = () => {
-    clearClienteForm();
-    setOpenCliente(false);
-  };
-  const handleClienteChange = e => {
-    const { name, value } = e.target;
-    setClienteForm(prev => ({ ...prev, [name]: value }));
-  };
+  const handleCloseCliente = () => { clearClienteForm(); setOpenCliente(false); };
+  const handleClienteChange = e => { const { name, value } = e.target; setClienteForm(prev=>({ ...prev, [name]: value })); };
   const handleSaveCliente = () => {
     const { nombre, apellido, dni, fechaRetiro, fechaDevolucion } = clienteForm;
     if (!nombre || !apellido || !dni || !fechaRetiro || !fechaDevolucion) {
@@ -85,7 +70,7 @@ export default function ProductosPOS() {
     setOpenCliente(false);
   };
 
-  // Funciones para generar documentos
+  // generar documentos
   const handleGenerarRemito = () => {
     if (!cliente.nombre) { handleOpenCliente(); return; }
     const num = generarNumeroRemito();
@@ -94,27 +79,21 @@ export default function ProductosPOS() {
   const handleGenerarPresupuesto = () => {
     if (!cliente.nombre) { handleOpenCliente(); return; }
     const num = generarNumeroPresupuesto();
-    generarPresupuestoPDF(cliente, carrito, jornadasMap, num, pedidoNumero);
+    generarPresupuestoPDF(cliente, carrito, jornadasMap, num, pedidoNumero, jornadasMap);
   };
 
-  // Estado categorías
+  // categorías
   const [categoriasNav, setCategoriasNav] = useState(() => {
     const saved = localStorage.getItem('categoriasNav');
     return saved ? JSON.parse(saved) : defaultCats;
   });
-  useEffect(() => {
-    localStorage.setItem('categoriasNav', JSON.stringify(categoriasNav));
-  }, [categoriasNav]);
+  useEffect(() => { localStorage.setItem('categoriasNav', JSON.stringify(categoriasNav)); }, [categoriasNav]);
   const [openEditCats, setOpenEditCats] = useState(false);
   const handleOpenEditCats = () => setOpenEditCats(true);
   const handleCloseEditCats = () => setOpenEditCats(false);
-  const handleCatChange = (idx, val) => {
-    setCategoriasNav(cats => {
-      const copy = [...cats]; copy[idx] = val; return copy;
-    });
-  };
+  const handleCatChange = (idx, val) => { const cp = [...categoriasNav]; cp[idx] = val; setCategoriasNav(cp); };
 
-  // Carga y agrupación de productos
+  // fetch and group productos
   const [productosRaw, setProductosRaw] = useState([]);
   const [productos, setProductos] = useState([]);
   useEffect(() => {
@@ -131,7 +110,7 @@ export default function ProductosPOS() {
       .catch(console.error);
   }, []);
 
-  // Filtros
+  // filtros
   const [buscar, setBuscar] = useState('');
   const [favorita, setFavorita] = useState('');
   const [subcategoria, setSubcategoria] = useState('');
@@ -146,76 +125,106 @@ export default function ProductosPOS() {
     );
   }, [productos, buscar, favorita, subcategoria]);
 
-  // Slider responsivo
+  // slider
   const [rows, setRows] = useState(1);
   const sliderRef = useRef(null);
   const calcularFilas = useCallback(() => {
     const alto = window.innerHeight - HEADER - FOOTER - ROW_GAP;
     setRows(Math.max(1, Math.floor(alto / (CARD_HEIGHT + ROW_GAP))));
   }, [HEADER, FOOTER]);
-  useEffect(() => {
-    calcularFilas();
-    window.addEventListener('resize', calcularFilas);
-    return () => window.removeEventListener('resize', calcularFilas);
-  }, [calcularFilas]);
-  useEffect(() => {
-    sliderRef.current?.slickGoTo(0);
-  }, [buscar, favorita, subcategoria, rows, sugerencias.length]);
-  const settings = { arrows: true, infinite: false, rows, slidesPerRow: SLIDES_PER_ROW, slidesToShow:1, slidesToScroll:1, speed:600, cssEase:'ease-in-out' };
+  useEffect(() => { calcularFilas(); window.addEventListener('resize', calcularFilas); return () => window.removeEventListener('resize', calcularFilas); }, [calcularFilas]);
+  useEffect(() => { sliderRef.current?.slickGoTo(0); }, [buscar, favorita, subcategoria, rows, sugerencias.length]);
+  const settings = { arrows: true, infinite: false, rows, slidesPerRow: SLIDES_PER_ROW, slidesToShow: 1, slidesToScroll: 1, speed: 600, cssEase: 'ease-in-out' };
 
-  // Carrito helpers
-  const agregarAlCarritoConSerial = (prod, serial) => {
-    setCarrito(c => [...c, { ...prod, serial, cantidad:1 }]);
+  // serial selection dialog (always)
+  const [openSerialDialog, setOpenSerialDialog] = useState(false);
+  const [pendingProduct, setPendingProduct] = useState(null);
+  const handleCardClick = prod => {
+    setPendingProduct(prod);
+    setOpenSerialDialog(true);
+  };
+  const handleSelectSerial = serial => {
+    if (pendingProduct) {
+      setCarrito(c => [...c, { ...pendingProduct, serial, cantidad: 1 }]);
+      setPendingProduct(null);
+    }
+    setOpenSerialDialog(false);
   };
 
   return (
     <Box>
       {/* HEADER búsqueda */}
-      <Box sx={{position:'fixed',top:0,left:0,right:0,height:HEADER,bgcolor:'grey.900',display:'flex',alignItems:'center',px:2,zIndex:1200}}>
+      <Box sx={{ position: 'fixed', top: 0, left: 0, right: 0, height: HEADER, bgcolor: 'grey.900', display: 'flex', alignItems: 'center', px: 2, zIndex: 1200 }}>
         <TextField
           size="small"
           placeholder="Buscar producto"
           value={buscar}
-          onChange={e=>setBuscar(e.target.value)}
-          InputProps={{ endAdornment:<InputAdornment position="end"><SearchIcon/></InputAdornment> }}
-          sx={{width:'28vw',bgcolor:'grey.800',borderRadius:1}}
+          onChange={e => setBuscar(e.target.value)}
+          InputProps={{ endAdornment: <InputAdornment position="end"><SearchIcon/></InputAdornment> }}
+          sx={{ width: '28vw', bgcolor: 'grey.800', borderRadius: 1 }}
         />
       </Box>
 
       {/* CARRITO lateral */}
-      <Box sx={{position:'fixed',top:HEADER,bottom:FOOTER,left:0,width:'30vw',p:2,bgcolor:'grey.900',overflowY:'auto',zIndex:1000}}>
+      <Box sx={{ position: 'fixed', top: HEADER, bottom: FOOTER, left: 0, width: '30vw', p: 2, bgcolor: 'grey.900', overflowY: 'auto', zIndex: 1000 }}>
         <Carrito
           productosSeleccionados={carrito}
-          onIncrementar={i=>{const c=[...carrito];c[i].cantidad++;setCarrito(c);}}
-          onDecrementar={i=>{const c=[...carrito];if(c[i].cantidad>1)c[i].cantidad--;setCarrito(c);}}
-          onCantidadChange={(i,v)=>{const c=[...carrito];c[i].cantidad=v===''?'':Math.max(1,parseInt(v,10));setCarrito(c);}}
-          onEliminar={i=>{const c=[...carrito];c.splice(i,1);setCarrito(c);}}
-          jornadasMap={{}}
-          setJornadasMap={()=>{}}
+          onIncrementar={i => { const c=[...carrito]; c[i].cantidad++; setCarrito(c); }}
+          onDecrementar={i => { const c=[...carrito]; if(c[i].cantidad>1)c[i].cantidad--; setCarrito(c); }}
+          onCantidadChange={(i,v) => { const c=[...carrito]; c[i].cantidad=v===''?'':Math.max(1, parseInt(v,10)); setCarrito(c); }}
+          onEliminar={i => { const c=[...carrito]; c.splice(i,1); setCarrito(c); }}
+          jornadasMap={jornadasMap}
+          setJornadasMap={setJornadasMap}
           pedidoNumero={pedidoNumero}
           setPedidoNumero={setPedidoNumero}
-          onClearAll={()=>setCarrito([])}
+          onClearAll={() => setCarrito([])}
         />
       </Box>
 
-      {/* PRODUCTOS + FILTROS y Slider */}
-      <Box sx={{position:'fixed',top:HEADER,bottom:FOOTER,left:'30vw',right:0,bgcolor:'grey.800',overflowY:'auto'}}>
-        {/* filtros categorías */}
-        <Box sx={{position:'sticky',top:0,py:1,px:1,bgcolor:'grey.800',zIndex:1300}}>
-          <Box sx={{display:'flex',gap:1,flexWrap:'wrap',mb:favorita?1:0}}>
-            <Button size="small" variant={!favorita?'contained':'outlined'} onClick={()=>{setFavorita('');setSubcategoria('');}}>Todas</Button>
-            {categoriasNav.map((cat,i)=>(<Button key={i} size="small" variant={favorita===cat?'contained':'outlined'} onClick={()=>{setFavorita(favorita===cat?'':cat);setSubcategoria('');}}>{cat}</Button>))}
-            <IconButton size="small" sx={{ml:'auto'}} onClick={handleOpenEditCats}><MoreVertIcon sx={{color:'#fff'}}/></IconButton>
+      {/* PRODUCTOS + SLIDER */}
+      <Box sx={{ position: 'fixed', top: HEADER, bottom: FOOTER, left: '30vw', right: 0, bgcolor: 'grey.800', overflowY: 'auto' }}>
+        {/* filtros de categorías */}
+        <Box sx={{ position: 'sticky', top: 0, py: 1, px: 1, bgcolor: 'grey.800', zIndex: 1300 }}>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: favorita ? 1 : 0 }}>
+            <Button size="small" variant={!favorita?'contained':'outlined'} onClick={() => { setFavorita(''); setSubcategoria(''); }}>Todas</Button>
+            {categoriasNav.map((cat,i) => (
+              <Button key={i} size="small" variant={favorita===cat?'contained':'outlined'} onClick={() => { setFavorita(favorita===cat?'':cat); setSubcategoria(''); }}>{cat}</Button>
+            ))}
+            <IconButton size="small" sx={{ ml: 'auto' }} onClick={handleOpenEditCats}><MoreVertIcon sx={{ color: '#fff' }}/></IconButton>
           </Box>
-          {productosRaw.filter(p=>p.categoria===favorita).length>0&&(
-            <Box sx={{display:'flex',gap:1,flexWrap:'wrap',px:1,py:0.5,bgcolor:'grey.700',borderLeft:`4px solid ${theme.palette.primary.main}`}}>
-              <Button size="small" variant={!subcategoria?'contained':'outlined'} onClick={()=>setSubcategoria('')}>Todas</Button>
-              {subcategoriasNav.map((sub,i)=>(<Button key={i} size="small" variant={subcategoria===sub?'contained':'outlined'} onClick={()=>setSubcategoria(sub)}>{sub}</Button>))}
+          {productosRaw.filter(p => p.categoria===favorita).length>0 && (
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', px: 1, py: 0.5, bgcolor: 'grey.700', borderLeft: `4px solid ${theme.palette.primary.main}` }}>
+              <Button size="small" variant={!subcategoria?'contained':'outlined'} onClick={() => setSubcategoria('')}>Todas</Button>
+              {Array.from(new Set(productosRaw.filter(p => p.categoria===favorita).map(p => p.subcategoria))).map((sub,i) => (
+                <Button key={i} size="small" variant={subcategoria===sub?'contained':'outlined'} onClick={() => setSubcategoria(sub)}>{sub}</Button>
+              ))}
             </Box>
           )}
         </Box>
+
+        {/* Slider */}
         <Slider ref={sliderRef} {...settings}>
-          {sugerencias.map((p,i)=>(<Box key={i} sx={{px:1,pb:`${ROW_GAP}px`}}><Box onClick={()=>agregarAlCarritoConSerial(p,p.seriales?.[0]||'')} sx={{height:CARD_HEIGHT,bgcolor:'grey.700',borderRadius:1,p:1.5,display:'flex',flexDirection:'column',justifyContent:'space-between',cursor:'pointer','&:hover':{bgcolor:'grey.600'}}}><Typography variant="subtitle1" sx={{fontWeight:600}}>{p.nombre}</Typography><Typography variant="h6" sx={{fontWeight:500}}>${(parseFloat(p.precio)||0).toFixed(2)}</Typography></Box></Box>))}
+          {sugerencias.map((p,i) => (
+            <Box key={i} sx={{ px: 1, pb: `${ROW_GAP}px` }}>
+              <Box
+                onClick={() => handleCardClick(p)}
+                sx={{
+                  height: CARD_HEIGHT,
+                  bgcolor: 'grey.700',
+                  borderRadius: 1,
+                  p: 1.5,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  '&:hover': { bgcolor: 'grey.600' }
+                }}
+              >
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{p.nombre}</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 500 }}>${(parseFloat(p.precio)||0).toFixed(2)}</Typography>
+              </Box>
+            </Box>
+          ))}
         </Slider>
       </Box>
 
@@ -223,20 +232,47 @@ export default function ProductosPOS() {
       <Dialog open={openEditCats} onClose={handleCloseEditCats}>
         <DialogTitle>Editar categorías</DialogTitle>
         <DialogContent>
-          {categoriasNav.map((cat,idx)=>(<TextField key={idx} fullWidth size="small" variant="outlined" label={`Categoría ${idx+1}`} value={cat} onChange={e=>handleCatChange(idx,e.target.value)} sx={{mb:2}}/>))}
+          {categoriasNav.map((cat,idx) => (
+            <TextField key={idx} fullWidth size="small" variant="outlined" label={`Categoría ${idx+1}`} value={cat} onChange={e => handleCatChange(idx,e.target.value)} sx={{ mb: 2 }}/>
+          ))}
         </DialogContent>
         <DialogActions><Button onClick={handleCloseEditCats}>Guardar</Button></DialogActions>
       </Dialog>
 
-      {/* Dialog Datos del Cliente */}
+      {/* Diálogo selección de serial */}
+      <Dialog open={openSerialDialog} onClose={() => setOpenSerialDialog(false)}>
+        <DialogTitle>Seleccionar serial</DialogTitle>
+        <DialogContent>
+          {pendingProduct?.seriales?.length > 0 ? (
+            pendingProduct.seriales.map(s => (
+              <MenuItem key={s} onClick={() => handleSelectSerial(s)}>{s}</MenuItem>
+            ))
+          ) : (
+            <MenuItem disabled>No hay seriales</MenuItem>
+          )}
+        </DialogContent>
+        <DialogActions><Button onClick={() => setOpenSerialDialog(false)}>Cancelar</Button></DialogActions>
+      </Dialog>
+
+      {/* Diálogo Datos del Cliente */}
       <Dialog open={openCliente} onClose={handleCloseCliente} fullWidth maxWidth="md">
         <DialogTitle>Datos del Cliente</DialogTitle>
         <DialogContent>
           <Grid container spacing={2}>
-            {['nombre','apellido','telefono','correo'].map(f=>(<Grid item xs={12} sm={6} key={f}><TextField fullWidth size="small" variant="outlined" name={f} label={f.charAt(0).toUpperCase()+f.slice(1)} value={clienteForm[f]||''} onChange={handleClienteChange}/></Grid>))}
-            <Grid item xs={12} sm={6}><TextField fullWidth size="small" variant="outlined" name="fechaRetiro" label="Fecha Retiro" type="datetime-local" InputLabelProps={{shrink:true}} value={clienteForm.fechaRetiro||''} onChange={handleClienteChange}/></Grid>
-            <Grid item xs={12} sm={6}><TextField fullWidth size="small" variant="outlined" name="fechaDevolucion" label="Fecha Devolución" type="datetime-local" InputLabelProps={{shrink:true}} value={clienteForm.fechaDevolucion||''} onChange={handleClienteChange}/></Grid>
-            <Grid item xs={12}><TextField fullWidth size="small" variant="outlined" name="dni" label="DNI" value={clienteForm.dni||''} onChange={handleClienteChange}/></Grid>
+            {['nombre','apellido','telefono','correo'].map(f => (
+              <Grid item xs={12} sm={6} key={f}>
+                <TextField fullWidth size="small" variant="outlined" name={f} label={f.charAt(0).toUpperCase()+f.slice(1)} value={clienteForm[f]||''} onChange={handleClienteChange}/>
+              </Grid>
+            ))}
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth size="small" variant="outlined" name="fechaRetiro" label="Fecha Retiro" type="datetime-local" InputLabelProps={{ shrink:true }} value={clienteForm.fechaRetiro||''} onChange={handleClienteChange}/>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth size="small" variant="outlined" name="fechaDevolucion" label="Fecha Devolución" type="datetime-local" InputLabelProps={{ shrink:true }} value={clienteForm.fechaDevolucion||''} onChange={handleClienteChange}/>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField fullWidth size="small" variant="outlined" name="dni" label="DNI" value={clienteForm.dni||''} onChange={handleClienteChange}/>
+            </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
@@ -246,8 +282,8 @@ export default function ProductosPOS() {
         </DialogActions>
       </Dialog>
 
-      {/* BottomNav */}
-      <BottomNav onOpenCliente={handleOpenCliente} onGenerarRemito={handleGenerarRemito} onGenerarPresupuesto={handleGenerarPresupuesto} onCancelar={()=>setCarrito([])}/>
+      {/* Bottom Navigation */}
+      <BottomNav onOpenCliente={handleOpenCliente} onGenerarRemito={handleGenerarRemito} onGenerarPresupuesto={handleGenerarPresupuesto} onCancelar={() => setCarrito([])}/>
     </Box>
   );
 }

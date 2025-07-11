@@ -20,7 +20,8 @@ export default function generarRemitoPDF(
   productosSeleccionados,
   atendidoPor,
   numeroRemito,
-  pedidoNumero = ""    // <— si no llega, queda string vacío
+  pedidoNumero = "",       // si no llega, queda string vacío
+  jornadasMap = {}         // nuevo: mapa de jornadas por índice
 ) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
@@ -46,12 +47,11 @@ export default function generarRemitoPDF(
     // Pedido N°
     doc.setFontSize(10);
     doc.text(
-      `Pedido N°: ${pedidoNumero || ""}`,
+      `Pedido N°: ${pedidoNumero}`,
       W - M,
       88,
       { align: "right" }
     );
-    doc.setFontSize(16);
 
     // título
     doc.setFillColor(242, 242, 242);
@@ -92,10 +92,10 @@ export default function generarRemitoPDF(
     { header: "Cod.", dataKey: "cod" }
   ];
   const grupos = {};
-  productosSeleccionados.forEach(item => {
+  productosSeleccionados.forEach((item, idx) => {
     const cat = item.categoria || "Sin categoría";
     if (!grupos[cat]) grupos[cat] = [];
-    grupos[cat].push(item);
+    grupos[cat].push({ ...item, __idx: idx });
   });
 
   const body = [];
@@ -144,10 +144,14 @@ export default function generarRemitoPDF(
 
   // ——— PIE DE PÁGINA (precio, descuento, firmas) ———
   const endY = doc.lastAutoTable.finalY + 20;
-  const totalSinIVA = productosSeleccionados.reduce(
-    (sum, i) => sum + (parseFloat(i.precio) || 0) * i.cantidad,
-    0
-  );
+  // ahora se incluye jornadas en el total
+  const totalSinIVA = productosSeleccionados.reduce((sum, item, idx) => {
+    const qty = parseInt(item.cantidad, 10) || 0;
+    const j = parseInt(jornadasMap[idx], 10) || 1;
+    const precio = parseFloat(item.precio) || 0;
+    return sum + qty * precio * j;
+  }, 0);
+
   const appliedDiscount = parseFloat(localStorage.getItem("descuento")) || 0;
   const totalConDescuento = totalSinIVA * (1 - appliedDiscount / 100);
 
