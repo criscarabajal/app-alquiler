@@ -1,3 +1,4 @@
+// src/components/BottomNav.jsx
 import React from 'react';
 import { Box, Button, Grid } from '@mui/material';
 
@@ -5,6 +6,7 @@ export default function BottomNav({
   onOpenCliente,
   onGenerarRemito,
   onGenerarPresupuesto,
+  onGenerarSeguro,       // <- nuevo
   onCancelar
 }) {
   return (
@@ -20,7 +22,7 @@ export default function BottomNav({
       }}
     >
       <Grid container spacing={2}>
-        <Grid item xs={3}>
+        <Grid item xs={2}>
           <Button
             fullWidth
             variant="contained"
@@ -30,28 +32,45 @@ export default function BottomNav({
             Cliente
           </Button>
         </Grid>
-        <Grid item xs={3}>
+        <Grid item xs={2}>
           <Button
             fullWidth
             variant="contained"
             color="success"
             onClick={onGenerarRemito}
           >
-            Generar Remito
+            Remito
           </Button>
         </Grid>
-        <Grid item xs={3}>
+        <Grid item xs={2}>
           <Button
             fullWidth
             variant="contained"
             color="secondary"
             onClick={onGenerarPresupuesto}
           >
-            Generar Presupuesto
+            Presupuesto
           </Button>
         </Grid>
-        <Grid item xs={3}>
-
+        <Grid item xs={2}>
+          <Button
+            fullWidth
+            variant="contained"
+            color="info"
+            onClick={onGenerarSeguro}
+          >
+            Seguros
+          </Button>
+        </Grid>
+        <Grid item xs={2}>
+          <Button
+            fullWidth
+            variant="contained"
+            color="warning"
+            onClick={onCancelar}
+          >
+            Cancelar
+          </Button>
         </Grid>
       </Grid>
     </Box>

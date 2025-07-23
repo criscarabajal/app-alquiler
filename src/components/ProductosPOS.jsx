@@ -25,12 +25,19 @@ import generarRemitoPDF, { generarNumeroRemito } from '../utils/generarRemito';
 import generarPresupuestoPDF, { generarNumeroPresupuesto } from '../utils/generarPresupuesto';
 import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
+import generarSeguroPDF, { generarNumeroSeguro } from '../utils/generarSeguro';
 
 const defaultCats = [
   'LUCES','GRIPERIA','TELAS','CAMARAS',
   'LENTES','BATERIAS','MONITOREO','FILTROS',
   'ACCESORIOS DE CAMARA','SONIDO'
 ];
+
+const handleGenerarSeguro = () => {
+  if (!cliente.nombre) { handleOpenCliente(); return; }
+   const num = generarNumeroSeguro();
+   generarSeguroPDF(cliente, carrito, num, pedidoNumero, jornadasMap);
+ };
 
 export default function ProductosPOS() {
   const theme = useTheme();
@@ -81,6 +88,18 @@ export default function ProductosPOS() {
     const num = generarNumeroPresupuesto();
     generarPresupuestoPDF(cliente, carrito, jornadasMap, num, pedidoNumero, jornadasMap);
   };
+
+  const handleGenerarSeguro = () => {
+  if (!cliente.nombre) {
+    handleOpenCliente();
+    return;
+  }
+  const numSeguro = generarNumeroSeguro();
+  // pasa los mismos argumentos que en remito: cliente, carrito, atendidoPor, número, pedido, jornadas
+  generarSeguroPDF(cliente, carrito, 'Santi', numSeguro, pedidoNumero, jornadasMap);
+};
+
+
 
   // categorías
   const [categoriasNav, setCategoriasNav] = useState(() => {
@@ -283,7 +302,13 @@ export default function ProductosPOS() {
       </Dialog>
 
       {/* Bottom Navigation */}
-      <BottomNav onOpenCliente={handleOpenCliente} onGenerarRemito={handleGenerarRemito} onGenerarPresupuesto={handleGenerarPresupuesto} onCancelar={() => setCarrito([])}/>
+       <BottomNav
+        onOpenCliente={handleOpenCliente}
+        onGenerarRemito={handleGenerarRemito}
+        onGenerarPresupuesto={handleGenerarPresupuesto}
+        onGenerarSeguro={handleGenerarSeguro}
+        onCancelar={() => setCarrito([])}
+      />
     </Box>
   );
 }
