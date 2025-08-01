@@ -96,7 +96,7 @@ export default function ProductosPOS() {
   }
   const numSeguro = generarNumeroSeguro();
   // pasa los mismos argumentos que en remito: cliente, carrito, atendidoPor, número, pedido, jornadas
-  generarSeguroPDF(cliente, carrito, 'Santi', numSeguro, pedidoNumero, jornadasMap);
+  generarSeguroPDF(cliente, carrito, numSeguro, pedidoNumero, jornadasMap);
 };
 
 

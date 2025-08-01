@@ -1,3 +1,4 @@
+// src/utils/fetchProductos.js
 export async function fetchProductos() {
   const sheetId = "1DhpNyUyM-sTHuoucELtaDP3Ul5-JemSrw7uhnhohMZc";
   const sheetName = "PRODUCTOS";
@@ -7,14 +8,21 @@ export async function fetchProductos() {
   try {
     const res = await fetch(url);
     const text = await res.text();
-
     const json = JSON.parse(text.substring(47).slice(0, -2));
-    const cols = json.table.cols.map((col) => col.label);
-    const rows = json.table.rows.map((row) => {
+
+    // Extraemos los headers
+    const cols = json.table.cols.map(col => col.label.trim());
+
+    // Buscamos el índice de la columna “VALOR DE REPOSICION” (con o sin tilde)
+    const reposKey = cols.find(
+      l => /valor\s+de\s+reposici[oó]n?/i.test(l)
+    );
+
+    const rows = json.table.rows.map(row => {
+      // construimos un objeto plano con key=header, val=cell.v
       const obj = {};
       row.c.forEach((cell, i) => {
-        const label = cols[i];
-        obj[label] = cell?.v ?? "";
+        obj[cols[i]] = cell?.v ?? "";
       });
 
       return {
@@ -26,12 +34,14 @@ export async function fetchProductos() {
         alquilable: obj["ALQUILABLE"],
         serial: obj["SERIAL"],
         incluye: obj["INCLUYE"],
+        // acá usamos reposKey para leer el valor correcto
+        valorReposicion: obj[reposKey] ?? 0
       };
     });
 
-    console.log("Columnas detectadas en la hoja:", cols);
-     // raw es la respuesta sin mapear
-console.log("Primer producto parseado:", rows[0]);   
+    console.log("Headers detectados:", cols);
+    console.log("Clave valor reposición:", reposKey);
+    console.log("Primer producto:", rows[0]);
 
     return rows;
   } catch (error) {

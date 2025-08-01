@@ -27,7 +27,7 @@ export default function generarSeguroPDF(
   const W = doc.internal.pageSize.getWidth();
   const M = 40;
 
-  // Header: logos, número y título
+  // —— HEADER ——
   const drawHeader = () => {
     const imgP = doc.getImageProperties(logoImg);
     const logoW = 100;
@@ -52,7 +52,7 @@ export default function generarSeguroPDF(
     doc.text("SEGURO DEL PEDIDO", W / 2, 93, { align: "center" });
   };
 
-  // Datos del cliente
+  // —— CLIENT DATA ——
   const drawClientData = () => {
     doc.setFontSize(9);
     doc.text(`CLIENTE: ${cliente.nombre} ${cliente.apellido}`, M, 110);
@@ -74,17 +74,17 @@ export default function generarSeguroPDF(
   drawHeader();
   drawClientData();
 
-  // Columnas: Detalle, N° de Serie, Cant., Valor unit., Parcial valor de reposición, Cod.
+  // —— TABLE ——
   const cols = [
     { header: "Detalle", dataKey: "detalle" },
     { header: "N° de Serie", dataKey: "serie" },
     { header: "Cant.", dataKey: "cantidad" },
     { header: "Valor unit.", dataKey: "valorUnit" },
+    { header: "Valor reposición", dataKey: "valorReposicion" },
     { header: "Parcial valor de reposición", dataKey: "parcial" },
-    
+    { header: "Cod.", dataKey: "cod" }
   ];
 
-  // Agrupar por categoría
   const grupos = {};
   productosSeleccionados.forEach((item, idx) => {
     const cat = item.categoria || "Sin categoría";
@@ -92,15 +92,15 @@ export default function generarSeguroPDF(
     grupos[cat].push({ ...item, __idx: idx });
   });
 
-  // Construir body
   const body = [];
   Object.entries(grupos).forEach(([cat, items]) => {
     body.push({ _category: cat });
     items.forEach(i => {
-      // calcular valores
       const qty = parseInt(i.cantidad, 10) || 0;
       const unit = parseFloat(i.precio) || 0;
-      const parcial = qty * unit;
+      const valorRep = parseFloat(i.valorReposicion) || 0;
+      const parcialVal = qty * valorRep;
+
       const líneas = [i.nombre];
       if (i.incluye) líneas.push(...i.incluye.split("\n"));
 
@@ -108,21 +108,27 @@ export default function generarSeguroPDF(
         detalle: líneas.join("\n"),
         serie: i.serial || "",
         cantidad: qty,
-        valorUnit: `$${unit.toFixed(0)}`,
-        parcial: `$${parcial.toFixed(0)}`,
+        valorUnit: `${unit.toFixed(0)} USD`,
+        valorReposicion: `${valorRep.toFixed(0)} USD`,
+        parcial: `${parcialVal.toFixed(0)} USD`,
         cod: ""
       });
     });
   });
 
-  // Dibujar tabla
   autoTable(doc, {
     startY: 180,
     margin: { top: 180, left: M, right: M },
     head: [cols.map(c => c.header)],
     body: body.map(row =>
       row._category
-        ? [{ content: row._category, colSpan: cols.length, styles: { fillColor: [235, 235, 235], fontStyle: "bold" } }]
+        ? [
+            {
+              content: row._category,
+              colSpan: cols.length,
+              styles: { fillColor: [235, 235, 235], fontStyle: "bold" }
+            }
+          ]
         : cols.map(c => row[c.dataKey])
     ),
     styles: { fontSize: 8, cellPadding: 2 },
@@ -138,29 +144,31 @@ export default function generarSeguroPDF(
     didDrawPage: () => { drawHeader(); drawClientData(); }
   });
 
-  // Pie de página (precio s/IVA y detalle opcional)
-  const endY = doc.lastAutoTable.finalY + 20;
-  const totalSinIVA = productosSeleccionados.reduce((sum, item) => {
+  // —— FOOTER TOTAL ——
+  const totalRep = productosSeleccionados.reduce((sum, item, idx) => {
     const qty = parseInt(item.cantidad, 10) || 0;
-    const unit = parseFloat(item.precio) || 0;
-    return sum + qty * unit;
+    const valorRep = parseFloat(item.valorReposicion) || 0;
+    return sum + qty * valorRep;
   }, 0);
-  const appliedDiscount = parseFloat(localStorage.getItem("descuento")) || 0;
-  const totalConDescuento = totalSinIVA * (1 - appliedDiscount / 100);
+  const totalText = `VALOR TOTAL DE REPOSICION EN DÓLAR OFICIAL (BCRA) = USD ${totalRep.toFixed(0)}`;
+  const totalY = doc.lastAutoTable.finalY + 20;
+  doc.setFontSize(14);
+  doc.text(totalText, M, totalY);
 
-  const boxX = W - M - 150;
-  const boxH = appliedDiscount > 0 ? 60 : 40;
-  
+  // —— FOOTER NOTE ——
+  const noteY = totalY + 20;
+  doc.setFontSize(8);
+  doc.text(
+    "- ES RESPONSABILIDAD DEL CLIENTE EL COMPLETO CHEQUEO DE LOS EQUIPOS AL RETIRAR",
+    M,
+    noteY
+  );
+  doc.text(
+    "- El pago deberá efectivizarse en la moneda detallada anteriormente o en su equivalente en pesos calculado al tipo de cambio vigente por el Banco de la Nación Argentina (tipo vendedor), al cierre del día hábil inmediato anterior al efectivo.",
+    M,
+    noteY + 14,
+    { maxWidth: W - 2 * M }
+  );
 
-  doc.setFontSize(10);
-  doc.text("Valor de reposición en dólar oficial (BCRA)", boxX + 75, endY + 2, { align: "center" });
-  if (appliedDiscount > 0) {
-    doc.text(`Descuento ${appliedDiscount}%`, boxX + 75, endY + 20, { align: "center" });
-    doc.text(`$${totalConDescuento.toFixed(0)}`, boxX + 75, endY + 38, { align: "center" });
-  } else {
-    doc.text(`$${totalSinIVA.toFixed(0)}`, boxX + 75, endY + 20, { align: "center" });
-  }
-
-  // Guardar
   doc.save(`Seguro_${cliente.apellido}_${numeroSeguro}.pdf`);
 }
