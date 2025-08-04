@@ -79,10 +79,8 @@ export default function generarSeguroPDF(
     { header: "Detalle", dataKey: "detalle" },
     { header: "N° de Serie", dataKey: "serie" },
     { header: "Cant.", dataKey: "cantidad" },
-    { header: "Valor unit.", dataKey: "valorUnit" },
     { header: "Valor reposición", dataKey: "valorReposicion" },
     { header: "Parcial valor de reposición", dataKey: "parcial" },
-    { header: "Cod.", dataKey: "cod" }
   ];
 
   const grupos = {};
@@ -108,10 +106,8 @@ export default function generarSeguroPDF(
         detalle: líneas.join("\n"),
         serie: i.serial || "",
         cantidad: qty,
-        valorUnit: `${unit.toFixed(0)} USD`,
         valorReposicion: `${valorRep.toFixed(0)} USD`,
         parcial: `${parcialVal.toFixed(0)} USD`,
-        cod: ""
       });
     });
   });
