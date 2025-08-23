@@ -26,6 +26,8 @@ export default function Carrito({
   onEliminar,
   jornadasMap,
   setJornadasMap,
+  comentario,            // ← viene del padre
+  setComentario,         // ← viene del padre
   pedidoNumero,
   setPedidoNumero,
   onClearAll
@@ -34,6 +36,7 @@ export default function Carrito({
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [openIncludes, setOpenIncludes] = useState(false);
   const [serialMap, setSerialMap] = useState({});
+  const [massJornadas, setMassJornadas] = useState(''); // ✅ valor para aplicar a todas
 
   // Guardar descuento
   useEffect(() => {
@@ -49,7 +52,7 @@ export default function Carrito({
       init[idx] = serialMap[idx] ?? opts[0] ?? '';
     });
     setSerialMap(init);
-  }, [openIncludes, productosSeleccionados]); // <-- serialMap removido de aquí
+  }, [openIncludes, productosSeleccionados]);
 
   const handleApplyDiscount = () => {
     if (discount === 'especial') {
@@ -66,6 +69,26 @@ export default function Carrito({
 
   const handleAccept = () => setOpenIncludes(false);
 
+  // ✅ helpers para jornadas masivas
+  const bumpAllJornadas = (delta) => {
+    setJornadasMap(prev => {
+      const next = { ...prev };
+      productosSeleccionados.forEach((_, idx) => {
+        const cur = parseInt(next[idx], 10) || 1;
+        next[idx] = Math.max(1, cur + delta);
+      });
+      return next;
+    });
+  };
+  const applyAllJornadas = (val) => {
+    const v = Math.max(1, parseInt(val, 10) || 1);
+    setJornadasMap(prev => {
+      const next = { ...prev };
+      productosSeleccionados.forEach((_, idx) => { next[idx] = v; });
+      return next;
+    });
+  };
+
   // Cálculo de totales
   const totalConJornadas = productosSeleccionados.reduce((sum, item, idx) => {
     const qty = parseInt(item.cantidad, 10) || 0;
@@ -77,9 +100,7 @@ export default function Carrito({
   const finalTotal = totalConJornadas - discountAmount;
   const totalWithIva = finalTotal * 1.21;
 
-  const ordenados = productosSeleccionados
-    .map((p, i) => ({ p, i }))
-    .reverse();
+  const ordenados = productosSeleccionados.map((p, i) => ({ p, i })).reverse();
 
   return (
     <Paper
@@ -96,23 +117,41 @@ export default function Carrito({
       }}
     >
       {/* Header pedido */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="h6" sx={{ fontSize: '1rem' }}>Pedido N°</Typography>
-          <TextField
-            size="small"
-            variant="outlined"
-            value={pedidoNumero}
-            onChange={e => setPedidoNumero(e.target.value)}
-            sx={{
-              width: 80,
-              bgcolor: '#2c2c2c',
-              borderRadius: 1,
-              '& .MuiInputBase-input': { color: '#fff', padding: '4px', textAlign: 'center' },
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#555' }
-            }}
-          />
-        </Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+        <Typography variant="h6" sx={{ fontSize: '1rem', whiteSpace: 'nowrap' }}>
+          Pedido N°
+        </Typography>
+        <TextField
+          size="small"
+          variant="outlined"
+          value={pedidoNumero}
+          onChange={e => setPedidoNumero(e.target.value)}
+          sx={{
+            width: 80,
+            bgcolor: '#2c2c2c',
+            borderRadius: 1,
+            '& .MuiInputBase-input': { color: '#fff', padding: '4px', textAlign: 'center' },
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: '#555' }
+          }}
+        />
+
+        {/* Comentario arriba de todo */}
+        <TextField
+          size="small"
+          placeholder="Comentario…"
+          value={comentario}
+          onChange={(e) => setComentario(e.target.value)}
+          sx={{
+            flex: 1,
+            minWidth: 140,
+            bgcolor: '#2c2c2c',
+            borderRadius: 1,
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: '#555' },
+            '& .MuiInputBase-input': { color: '#fff', py: '6px' }
+          }}
+          inputProps={{ maxLength: 200 }}
+        />
+
         <IconButton size="small" onClick={() => setOpenIncludes(true)}>
           <MoreVert sx={{ color: '#fff' }} />
         </IconButton>
@@ -206,46 +245,87 @@ export default function Carrito({
         <DialogTitle>Detalles de productos</DialogTitle>
         <DialogContent dividers sx={{ overflowY: 'auto' }}>
           {productosSeleccionados.length ? (
-            productosSeleccionados.map((item, idx) => {
-              const j = jornadasMap[idx] || 1;
-              const serialOptions = Array.isArray(item.seriales) ? item.seriales : [];
-              return (
-                <Box
-                  key={idx}
-                  sx={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 140px auto',
-                    columnGap: 2,
-                    alignItems: 'center',
-                    mb: 2,
-                    p: 1,
-                    border: '1px solid #444',
-                    borderRadius: 1,
-                    bgcolor: '#2a2a2a'
-                  }}
+            <>
+              {/* ✅ Controles masivos de jornadas */}
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.5,
+                  mb: 2,
+                  p: 1,
+                  border: '1px dashed #666',
+                  borderRadius: 1,
+                  bgcolor: '#222'
+                }}
+              >
+                <Typography sx={{ mr: 1, fontWeight: 600 }}>Jornadas (todas):</Typography>
+
+                <IconButton size="small" onClick={() => bumpAllJornadas(-1)}>
+                  <Remove fontSize="small" />
+                </IconButton>
+
+                <TextField
+                  size="small"
+                  type="number"
+                  value={massJornadas}
+                  onChange={(e) => setMassJornadas(e.target.value)}
+                  inputProps={{ min: 1, style: { textAlign: 'center', width: 70 } }}
+                  sx={{ bgcolor: '#1e1e1e', borderRadius: 1 }}
+                  placeholder="n°"
+                />
+
+                <IconButton size="small" onClick={() => bumpAllJornadas(1)}>
+                  <Add fontSize="small" />
+                </IconButton>
+
+                <Button
+                  size="small"
+                  variant="contained"
+                  onClick={() => applyAllJornadas(massJornadas)}
+                  sx={{ ml: 'auto' }}
                 >
-                  <Box>
-                    <Typography fontWeight={600}>{item.nombre}</Typography>
-                    <Typography variant="body2">{item.incluye || 'Sin info.'}</Typography>
-                  </Box>
-                  <Box>
-                   
-                  </Box>
-                  <Box display="flex" flexDirection="column" alignItems="center">
-                    <Typography variant="caption" color="gray">Jornadas</Typography>
-                    <Box display="flex" alignItems="center" sx={{ border: '1px dashed gray', borderRadius: 1, p: '2px 4px', bgcolor: '#1e1e1e' }}>
-                      <IconButton size="small" onClick={() =>
-                        setJornadasMap(prev => ({ ...prev, [idx]: Math.max(1, (prev[idx]||1)-1) }))
-                      }><Remove fontSize="small" /></IconButton>
-                      <Typography mx={0.5}>{j}</Typography>
-                      <IconButton size="small" onClick={() =>
-                        setJornadasMap(prev => ({ ...prev, [idx]: (prev[idx]||1)+1 }))
-                      }><Add fontSize="small" /></IconButton>
+                  Aplicar a todas
+                </Button>
+              </Box>
+
+              {productosSeleccionados.map((item, idx) => {
+                const j = jornadasMap[idx] || 1;
+                return (
+                  <Box
+                    key={idx}
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr auto',
+                      columnGap: 2,
+                      alignItems: 'center',
+                      mb: 2,
+                      p: 1,
+                      border: '1px solid #444',
+                      borderRadius: 1,
+                      bgcolor: '#2a2a2a'
+                    }}
+                  >
+                    <Box>
+                      <Typography fontWeight={600}>{item.nombre}</Typography>
+                      <Typography variant="body2">{item.incluye || 'Sin info.'}</Typography>
+                    </Box>
+                    <Box display="flex" flexDirection="column" alignItems="center">
+                      <Typography variant="caption" color="gray">Jornadas</Typography>
+                      <Box display="flex" alignItems="center" sx={{ border: '1px dashed gray', borderRadius: 1, p: '2px 4px', bgcolor: '#1e1e1e' }}>
+                        <IconButton size="small" onClick={() =>
+                          setJornadasMap(prev => ({ ...prev, [idx]: Math.max(1, (prev[idx]||1)-1) }))
+                        }><Remove fontSize="small" /></IconButton>
+                        <Typography mx={0.5}>{j}</Typography>
+                        <IconButton size="small" onClick={() =>
+                          setJornadasMap(prev => ({ ...prev, [idx]: (prev[idx]||1)+1 }))
+                        }><Add fontSize="small" /></IconButton>
+                      </Box>
                     </Box>
                   </Box>
-                </Box>
-              );
-            })
+                );
+              })}
+            </>
           ) : (
             <Typography>No hay productos seleccionados.</Typography>
           )}

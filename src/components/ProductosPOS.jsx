@@ -33,12 +33,6 @@ const defaultCats = [
   'ACCESORIOS DE CAMARA','SONIDO'
 ];
 
-const handleGenerarSeguro = () => {
-  if (!cliente.nombre) { handleOpenCliente(); return; }
-   const num = generarNumeroSeguro();
-   generarSeguroPDF(cliente, carrito, num, pedidoNumero, jornadasMap);
- };
-
 export default function ProductosPOS() {
   const theme = useTheme();
   const HEADER = parseInt(theme.spacing(9), 10);
@@ -46,6 +40,10 @@ export default function ProductosPOS() {
   const CARD_HEIGHT = 180;
   const ROW_GAP = 16;
   const SLIDES_PER_ROW = 5;
+
+  // comentario / notas del pedido (persistente)
+  const [comentario, setComentario] = useState(() => localStorage.getItem('comentario') || '');
+  useEffect(() => { localStorage.setItem('comentario', comentario); }, [comentario]);
 
   // pedido número y jornadas
   const [pedidoNumero, setPedidoNumero] = useState('');
@@ -81,25 +79,21 @@ export default function ProductosPOS() {
   const handleGenerarRemito = () => {
     if (!cliente.nombre) { handleOpenCliente(); return; }
     const num = generarNumeroRemito();
-    generarRemitoPDF(cliente, carrito, num, pedidoNumero);
+    // Orden correcto de la firma:
+    // (cliente, items, atendidoPor, numeroRemito, pedidoNumero, jornadasMap, comentario)
+    generarRemitoPDF(cliente, carrito, '', num, pedidoNumero, jornadasMap, comentario);
   };
   const handleGenerarPresupuesto = () => {
     if (!cliente.nombre) { handleOpenCliente(); return; }
     const num = generarNumeroPresupuesto();
     generarPresupuestoPDF(cliente, carrito, jornadasMap, num, pedidoNumero, jornadasMap);
   };
-
   const handleGenerarSeguro = () => {
-  if (!cliente.nombre) {
-    handleOpenCliente();
-    return;
-  }
-  const numSeguro = generarNumeroSeguro();
-  // pasa los mismos argumentos que en remito: cliente, carrito, atendidoPor, número, pedido, jornadas
-  generarSeguroPDF(cliente, carrito, numSeguro, pedidoNumero, jornadasMap);
-};
-
-
+    if (!cliente.nombre) { handleOpenCliente(); return; }
+    const num = generarNumeroSeguro();
+    // firma (cliente, productosSeleccionados, atendidoPor, numeroSeguro, pedidoNumero, jornadasMap)
+    generarSeguroPDF(cliente, carrito, num, pedidoNumero, jornadasMap);
+  };
 
   // categorías
   const [categoriasNav, setCategoriasNav] = useState(() => {
@@ -155,7 +149,7 @@ export default function ProductosPOS() {
   useEffect(() => { sliderRef.current?.slickGoTo(0); }, [buscar, favorita, subcategoria, rows, sugerencias.length]);
   const settings = { arrows: true, infinite: false, rows, slidesPerRow: SLIDES_PER_ROW, slidesToShow: 1, slidesToScroll: 1, speed: 600, cssEase: 'ease-in-out' };
 
-  // serial selection dialog (always)
+  // diálogo de serial
   const [openSerialDialog, setOpenSerialDialog] = useState(false);
   const [pendingProduct, setPendingProduct] = useState(null);
   const handleCardClick = prod => {
@@ -184,8 +178,8 @@ export default function ProductosPOS() {
         />
       </Box>
 
-      {/* CARRITO lateral */}
-      <Box sx={{ position: 'fixed', top: HEADER, bottom: FOOTER, left: 0, width: '30vw', p: 2, bgcolor: 'grey.900', overflowY: 'auto', zIndex: 1000 }}>
+      {/* CARRITO 40% */}
+      <Box sx={{ position: 'fixed', top: HEADER, bottom: FOOTER, left: 0, width: '40vw', p: 2, bgcolor: 'grey.900', overflowY: 'auto', zIndex: 1000 }}>
         <Carrito
           productosSeleccionados={carrito}
           onIncrementar={i => { const c=[...carrito]; c[i].cantidad++; setCarrito(c); }}
@@ -196,12 +190,14 @@ export default function ProductosPOS() {
           setJornadasMap={setJornadasMap}
           pedidoNumero={pedidoNumero}
           setPedidoNumero={setPedidoNumero}
+          comentario={comentario}
+          setComentario={setComentario}
           onClearAll={() => setCarrito([])}
         />
       </Box>
 
-      {/* PRODUCTOS + SLIDER */}
-      <Box sx={{ position: 'fixed', top: HEADER, bottom: FOOTER, left: '30vw', right: 0, bgcolor: 'grey.800', overflowY: 'auto' }}>
+      {/* PRODUCTOS 60% */}
+      <Box sx={{ position: 'fixed', top: HEADER, bottom: FOOTER, left: '40vw', right: 0, bgcolor: 'grey.800', overflowY: 'auto' }}>
         {/* filtros de categorías */}
         <Box sx={{ position: 'sticky', top: 0, py: 1, px: 1, bgcolor: 'grey.800', zIndex: 1300 }}>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: favorita ? 1 : 0 }}>
@@ -302,7 +298,7 @@ export default function ProductosPOS() {
       </Dialog>
 
       {/* Bottom Navigation */}
-       <BottomNav
+      <BottomNav
         onOpenCliente={handleOpenCliente}
         onGenerarRemito={handleGenerarRemito}
         onGenerarPresupuesto={handleGenerarPresupuesto}

@@ -20,8 +20,9 @@ export default function generarRemitoPDF(
   productosSeleccionados,
   atendidoPor,
   numeroRemito,
-  pedidoNumero = "",       // si no llega, queda string vacío
-  jornadasMap = {}         // nuevo: mapa de jornadas por índice
+  pedidoNumero = "",
+  jornadasMap = {},
+  comentario = ""            // ← NUEVO: nota libre
 ) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
@@ -46,12 +47,7 @@ export default function generarRemitoPDF(
 
     // Pedido N°
     doc.setFontSize(10);
-    doc.text(
-      `Pedido N°: ${pedidoNumero}`,
-      W - M,
-      88,
-      { align: "right" }
-    );
+    doc.text(`Pedido N°: ${pedidoNumero}`, W - M, 88, { align: "right" });
 
     // título
     doc.setFillColor(242, 242, 242);
@@ -67,17 +63,9 @@ export default function generarRemitoPDF(
     doc.text(`CLIENTE: ${cliente.nombre || ""} ${cliente.apellido || ""}`, M, 110);
     doc.text(`D.N.I.: ${cliente.dni || ""}`, M, 125);
     doc.text(`TEL: ${cliente.telefono || ""}`, M, 140);
-    doc.text(`ATENDIDO: ${atendidoPor}`, W - M - 140, 110);
-    doc.text(
-      `RETIRO: ${formatearFechaHora(new Date(cliente.fechaRetiro || ""))}`,
-      M,
-      160
-    );
-    doc.text(
-      `DEVOLUCIÓN: ${formatearFechaHora(new Date(cliente.fechaDevolucion || ""))}`,
-      M + 300,
-      160
-    );
+    doc.text(`ATENDIDO: ${atendidoPor || ""}`, W - M - 140, 110);
+    doc.text(`RETIRO: ${formatearFechaHora(new Date(cliente.fechaRetiro || ""))}`, M, 160);
+    doc.text(`DEVOLUCIÓN: ${formatearFechaHora(new Date(cliente.fechaDevolucion || ""))}`, M + 300, 160);
   };
 
   // primera página
@@ -91,6 +79,8 @@ export default function generarRemitoPDF(
     { header: "N° de Serie", dataKey: "serie" },
     { header: "Cod.", dataKey: "cod" }
   ];
+
+  // Agrupar por categoría
   const grupos = {};
   productosSeleccionados.forEach((item, idx) => {
     const cat = item.categoria || "Sin categoría";
@@ -98,18 +88,44 @@ export default function generarRemitoPDF(
     grupos[cat].push({ ...item, __idx: idx });
   });
 
+  // Comentario (usa parámetro o localStorage si no vino)
+  const comentarioLinea = (comentario ?? localStorage.getItem("comentario") ?? "").trim();
+
   const body = [];
+
+  // ——— Fila de comentario justo debajo del encabezado ———
+if (comentarioLinea) {
+  body.push([{
+    content: comentarioLinea,
+    colSpan: 4,
+    styles: { 
+      fillColor: [245, 245, 245], 
+      fontStyle: "bold", 
+      fontSize: 14,           // más grande
+      halign: "left",         // alineado a la izquierda
+      valign: "middle",       // centrado vertical
+      cellPadding: {          // 🔹 más padding arriba y abajo
+        top: 8,
+        bottom: 8,
+        left: 4,
+        right: 4
+      }
+    }
+  }]);
+}
+
+
+  // Filas por categorías + productos
   Object.entries(grupos).forEach(([cat, items]) => {
-    body.push({ _category: cat });
+    body.push([{
+      content: cat,
+      colSpan: 4,
+      styles: { fillColor: [235, 235, 235], fontStyle: "bold" }
+    }]);
     items.forEach(i => {
-      const líneas = [i.nombre];
-      if (i.incluye) líneas.push(...i.incluye.split("\n"));
-      body.push({
-        cantidad: i.cantidad,
-        detalle: líneas.join("\n"),
-        serie: i.serial || "",
-        cod: ""
-      });
+      const lineas = [i.nombre];
+      if (i.incluye) lineas.push(...(String(i.incluye).split("\n")));
+      body.push([i.cantidad, lineas.join("\n"), i.serial || "", ""]);
     });
   });
 
@@ -117,34 +133,20 @@ export default function generarRemitoPDF(
     startY: 180,
     margin: { top: 180, left: M, right: M },
     head: [cols.map(c => c.header)],
-    body: body.map(row =>
-      row._category
-        ? [{
-            content: row._category,
-            colSpan: 4,
-            styles: { fillColor: [235, 235, 235], fontStyle: "bold" }
-          }]
-        : [row.cantidad, row.detalle, row.serie, row.cod]
-    ),
+    body,
     styles: { fontSize: 8, cellPadding: 2 },
     theme: "grid",
     headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0] },
-    didParseCell: data => {
-      if (data.row.raw[0] && data.row.raw[1] === undefined) {
-        data.cell.colSpan = 4;
-        data.cell.styles.fillColor = [235, 235, 235];
-        data.cell.styles.fontStyle = "bold";
-      }
-    },
     didDrawPage: () => {
       drawHeader();
       drawClientData();
     }
   });
 
-  // ——— PIE DE PÁGINA (precio, descuento, firmas) ———
+  // ——— PIE: totales, pago, firmas ———
   const endY = doc.lastAutoTable.finalY + 20;
-  // ahora se incluye jornadas en el total
+
+  // Total sin IVA considerando jornadas
   const totalSinIVA = productosSeleccionados.reduce((sum, item, idx) => {
     const qty = parseInt(item.cantidad, 10) || 0;
     const j = parseInt(jornadasMap[idx], 10) || 1;
