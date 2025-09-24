@@ -79,19 +79,19 @@ export default function ProductosPOS() {
   const handleGenerarRemito = () => {
     if (!cliente.nombre) { handleOpenCliente(); return; }
     const num = generarNumeroRemito();
-    // Orden correcto de la firma:
-    // (cliente, items, atendidoPor, numeroRemito, pedidoNumero, jornadasMap, comentario)
+    // firma: (cliente, items, atendidoPor, numeroRemito, pedidoNumero, jornadasMap, comentario)
     generarRemitoPDF(cliente, carrito, '', num, pedidoNumero, jornadasMap, comentario);
   };
   const handleGenerarPresupuesto = () => {
     if (!cliente.nombre) { handleOpenCliente(); return; }
-    const num = generarNumeroPresupuesto();
-    generarPresupuestoPDF(cliente, carrito, jornadasMap, num, pedidoNumero, jornadasMap);
+    const num = generarNumeroPresupuesto(); // acá lo usamos como "fechaEmision" textual / código
+    // firma: (cliente, productosSeleccionados, jornadasMap, fechaEmision, pedidoNumero)
+    generarPresupuestoPDF(cliente, carrito, jornadasMap, num, pedidoNumero);
   };
   const handleGenerarSeguro = () => {
     if (!cliente.nombre) { handleOpenCliente(); return; }
     const num = generarNumeroSeguro();
-    // firma (cliente, productosSeleccionados, atendidoPor, numeroSeguro, pedidoNumero, jornadasMap)
+    // firma (cliente, productosSeleccionados, atendidoPor/numero?, numeroSeguro, pedidoNumero, jornadasMap)
     generarSeguroPDF(cliente, carrito, num, pedidoNumero, jornadasMap);
   };
 
@@ -274,21 +274,50 @@ export default function ProductosPOS() {
         <DialogTitle>Datos del Cliente</DialogTitle>
         <DialogContent>
           <Grid container spacing={2}>
-            {['nombre','apellido','telefono','correo'].map(f => (
-              <Grid item xs={12} sm={6} key={f}>
-                <TextField fullWidth size="small" variant="outlined" name={f} label={f.charAt(0).toUpperCase()+f.slice(1)} value={clienteForm[f]||''} onChange={handleClienteChange}/>
-              </Grid>
-            ))}
-            <Grid item xs={12} sm={6}>
-              <TextField fullWidth size="small" variant="outlined" name="fechaRetiro" label="Fecha Retiro" type="datetime-local" InputLabelProps={{ shrink:true }} value={clienteForm.fechaRetiro||''} onChange={handleClienteChange}/>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField fullWidth size="small" variant="outlined" name="fechaDevolucion" label="Fecha Devolución" type="datetime-local" InputLabelProps={{ shrink:true }} value={clienteForm.fechaDevolucion||''} onChange={handleClienteChange}/>
-            </Grid>
-            <Grid item xs={12}>
-              <TextField fullWidth size="small" variant="outlined" name="dni" label="DNI" value={clienteForm.dni||''} onChange={handleClienteChange}/>
-            </Grid>
-          </Grid>
+  {/* Nombre */}
+  <Grid item xs={12}>
+    <TextField
+      fullWidth
+      size="small"
+      variant="outlined"
+      name="nombre"
+      label="Nombre"
+      value={clienteForm.nombre || ''}
+      onChange={handleClienteChange}
+    />
+  </Grid>
+
+  {/* Fecha Retiro */}
+  <Grid item xs={12} sm={6}>
+    <TextField
+      fullWidth
+      size="small"
+      variant="outlined"
+      name="fechaRetiro"
+      label="Fecha Retiro"
+      type="datetime-local"
+      InputLabelProps={{ shrink: true }}
+      value={clienteForm.fechaRetiro || ''}
+      onChange={handleClienteChange}
+    />
+  </Grid>
+
+  {/* Fecha Devolución */}
+  <Grid item xs={12} sm={6}>
+    <TextField
+      fullWidth
+      size="small"
+      variant="outlined"
+      name="fechaDevolucion"
+      label="Fecha Devolución"
+      type="datetime-local"
+      InputLabelProps={{ shrink: true }}
+      value={clienteForm.fechaDevolucion || ''}
+      onChange={handleClienteChange}
+    />
+  </Grid>
+</Grid>
+
         </DialogContent>
         <DialogActions>
           <Button color="error" onClick={clearClienteForm}>Borrar todo</Button>

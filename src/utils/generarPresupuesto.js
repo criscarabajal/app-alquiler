@@ -32,6 +32,9 @@ export default function generarPresupuestoPDF(
   const W = doc.internal.pageSize.getWidth();
   const M = 40;
 
+  // Número visible en el PDF: usa Pedido N° si existe
+  const numeroVisible = pedidoNumero || fechaEmision;
+
   // --- Encabezado ---
   const drawHeader = () => {
     const imgP = doc.getImageProperties(logoImg);
@@ -45,12 +48,13 @@ export default function generarPresupuestoPDF(
     doc.addImage(lochImg, "JPEG", M + logoW + 10, 40, lochW, lochH);
 
     doc.setFontSize(18);
-    doc.text("presupuesto", W - M, 60, { align: "right" });
+    doc.text(`Presupuesto N°: ${numeroVisible}`, W - M, 60, { align: "right" });
+
     doc.setFontSize(10);
-    doc.text(`emisión: ${fechaEmision}`, W - M, 75, { align: "right" });
-    if (pedidoNumero) {
-      doc.text(`pedido n°: ${pedidoNumero}`, W - M, 90, { align: "right" });
-    }
+    const hoy = new Date();
+    const emisionLegible = `${String(hoy.getDate()).padStart(2,"0")}/${String(hoy.getMonth()+1).padStart(2,"0")}/${hoy.getFullYear()}`;
+    doc.text(`Emisión: ${emisionLegible}`, W - M, 75, { align: "right" });
+
     doc.setLineWidth(0.5);
     doc.line(M, 110, W - M, 110);
   };
@@ -79,23 +83,23 @@ export default function generarPresupuestoPDF(
 
   // --- Agrupar por categoría y preparar tabla ---
   const grupos = {};
-  productosSeleccionados.forEach((item, idx) => {
+  productosSeleccionados.forEach((item, idxGlobal) => {
     const cat = item.categoria || "sin categoría";
     if (!grupos[cat]) grupos[cat] = [];
-    grupos[cat].push(item);
+    grupos[cat].push({ ...item, __idxGlobal: idxGlobal });
   });
 
   const headers = ["detalle", "cant.", "jornadas", "p.u.", "subtotal"];
   const body = [];
   Object.entries(grupos).forEach(([cat, items]) => {
     body.push([{ content: cat, colSpan: 5, styles: { fillColor: [235,235,235], fontStyle: 'bold' } }]);
-    items.forEach((i, idx) => {
+    items.forEach((i) => {
       const qty = parseInt(i.cantidad, 10) || 0;
-      const j = parseInt(jornadasMap[idx], 10) || 1;
+      const j = parseInt(jornadasMap[i.__idxGlobal], 10) || 1;
       const price = parseFloat(i.precio) || 0;
       const subtotal = qty * price * j;
       const detalleLines = [i.nombre];
-      if (i.incluye) detalleLines.push(...i.incluye.split("\n"));
+      if (i.incluye) detalleLines.push(...String(i.incluye).split("\n"));
       body.push([
         detalleLines.join("\n"),
         qty,
@@ -125,9 +129,9 @@ export default function generarPresupuestoPDF(
 
   // --- Cálculo de totales ---
   const finalY = doc.lastAutoTable.finalY + 20;
-  const totalBruto = Object.values(grupos).flat().reduce((sum, itm, idx) => {
+  const totalBruto = Object.values(grupos).flat().reduce((sum, itm) => {
     const qty = parseInt(itm.cantidad, 10) || 0;
-    const j = parseInt(jornadasMap[idx], 10) || 1;
+    const j = parseInt(jornadasMap[itm.__idxGlobal], 10) || 1;
     const price = parseFloat(itm.precio) || 0;
     return sum + qty * price * j;
   }, 0);
@@ -188,6 +192,10 @@ export default function generarPresupuestoPDF(
   ];
   lines.forEach((ln, i) => doc.text(ln, M, notasY + 12 + i * 12));
 
-  // Guardar
-  doc.save(`${cliente.apellido}_${fechaEmision}.pdf`);
+  // —— NOMBRE DE ARCHIVO SEGÚN “Pedido N°”
+  const nombreArchivo = pedidoNumero
+    ? `Presupuesto_${pedidoNumero}.pdf`
+    : `${cliente.apellido}_${fechaEmision}.pdf`;
+
+  doc.save(nombreArchivo);
 }

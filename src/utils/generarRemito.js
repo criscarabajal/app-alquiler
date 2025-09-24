@@ -22,11 +22,14 @@ export default function generarRemitoPDF(
   numeroRemito,
   pedidoNumero = "",
   jornadasMap = {},
-  comentario = ""            // ← NUEVO: nota libre
+  comentario = ""            // nota libre
 ) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
   const M = 40;
+
+  // Número visible en el PDF (Pedido N° si existe)
+  const numeroVisible = pedidoNumero || numeroRemito;
 
   // ——— HEADER ———
   const drawHeader = () => {
@@ -41,13 +44,13 @@ export default function generarRemitoPDF(
     const lochH = (lochP.height * lochW) / lochP.width;
     doc.addImage(lochImg, "JPEG", M + logoW + 10, 20, lochW, lochH);
 
-    // N° remito
+    // Número principal (usa Pedido N° si hay)
     doc.setFontSize(16);
-    doc.text(`${numeroRemito}`, W - M, 40, { align: "right" });
+    doc.text(`${numeroVisible}`, W - M, 40, { align: "right" });
 
     // Pedido N°
     doc.setFontSize(10);
-    doc.text(`Pedido N°: ${pedidoNumero}`, W - M, 88, { align: "right" });
+    doc.text(`Pedido N°: ${numeroVisible}`, W - M, 88, { align: "right" });
 
     // título
     doc.setFillColor(242, 242, 242);
@@ -93,35 +96,25 @@ export default function generarRemitoPDF(
 
   const body = [];
 
-  // ——— Fila de comentario justo debajo del encabezado ———
-if (comentarioLinea) {
-  body.push([{
-    content: comentarioLinea,
-    colSpan: 4,
-    styles: { 
-      fillColor: [245, 245, 245], 
-      fontStyle: "bold", 
-      fontSize: 14,           // más grande
-      halign: "left",         // alineado a la izquierda
-      valign: "middle",       // centrado vertical
-      cellPadding: {          // 🔹 más padding arriba y abajo
-        top: 8,
-        bottom: 8,
-        left: 4,
-        right: 4
+  // Fila de comentario debajo del encabezado
+  if (comentarioLinea) {
+    body.push([{
+      content: comentarioLinea,
+      colSpan: 4,
+      styles: { 
+        fillColor: [245, 245, 245], 
+        fontStyle: "bold", 
+        fontSize: 14,
+        halign: "left",
+        valign: "middle",
+        cellPadding: { top: 8, bottom: 8, left: 4, right: 4 }
       }
-    }
-  }]);
-}
-
+    }]);
+  }
 
   // Filas por categorías + productos
   Object.entries(grupos).forEach(([cat, items]) => {
-    body.push([{
-      content: cat,
-      colSpan: 4,
-      styles: { fillColor: [235, 235, 235], fontStyle: "bold" }
-    }]);
+    body.push([{ content: cat, colSpan: 4, styles: { fillColor: [235, 235, 235], fontStyle: "bold" } }]);
     items.forEach(i => {
       const lineas = [i.nombre];
       if (i.incluye) lineas.push(...(String(i.incluye).split("\n")));
@@ -188,5 +181,10 @@ if (comentarioLinea) {
   doc.setFontSize(6);
   doc.text("guardias no incluidas", M, sigY + 30);
 
-  doc.save(`Remito_${cliente.apellido}_${numeroRemito}.pdf`);
+  // —— NOMBRE DE ARCHIVO SEGÚN “Pedido N°”
+  const nombreArchivo = pedidoNumero
+    ? `Remito_${pedidoNumero}.pdf`
+    : `Remito_${cliente.apellido}_${numeroRemito}.pdf`;
+
+  doc.save(nombreArchivo);
 }
