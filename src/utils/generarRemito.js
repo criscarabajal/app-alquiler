@@ -62,14 +62,10 @@ export default function generarRemitoPDF(
 
   // ——— DATOS CLIENTE ———
   const drawClientData = () => {
-    doc.setFontSize(9);
-    doc.text(`CLIENTE: ${cliente.nombre || ""} ${cliente.apellido || ""}`, M, 110);
-    doc.text(`D.N.I.: ${cliente.dni || ""}`, M, 125);
-    doc.text(`TEL: ${cliente.telefono || ""}`, M, 140);
-    doc.text(`ATENDIDO: ${atendidoPor || ""}`, W - M - 140, 110);
-    doc.text(`RETIRO: ${formatearFechaHora(new Date(cliente.fechaRetiro || ""))}`, M, 160);
-    doc.text(`DEVOLUCIÓN: ${formatearFechaHora(new Date(cliente.fechaDevolucion || ""))}`, M + 300, 160);
-  };
+  doc.setFontSize(9);
+  doc.text(`CLIENTE: ${cliente.nombre || ""}`, M, 110);
+};
+
 
   // primera página
   drawHeader();

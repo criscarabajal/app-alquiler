@@ -1,5 +1,5 @@
 // src/components/ProductosPOS.jsx
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   TextField,
@@ -55,44 +55,46 @@ export default function ProductosPOS() {
     localStorage.setItem('carrito', JSON.stringify(carrito));
   }, [carrito]);
 
-  // cliente
-  const initialClienteForm = { nombre:'', apellido:'', telefono:'', correo:'', fechaRetiro:'', fechaDevolucion:'', dni:'' };
-  const [clienteForm, setClienteForm] = useState(JSON.parse(localStorage.getItem('cliente')) || initialClienteForm);
-  const [cliente, setCliente] = useState(JSON.parse(localStorage.getItem('cliente')) || {});
+  // cliente (solo nombre/fechas; el resto opcional/ausente)
+  const initialClienteForm = { nombre:'', fechaRetiro:'', fechaDevolucion:'' };
+  const [clienteForm, setClienteForm] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('cliente')) || initialClienteForm; }
+    catch { return initialClienteForm; }
+  });
+  const [cliente, setCliente] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('cliente')) || {}; }
+    catch { return {}; }
+  });
   const [openCliente, setOpenCliente] = useState(false);
   const handleOpenCliente = () => setOpenCliente(true);
   const clearClienteForm = () => setClienteForm(initialClienteForm);
-  const handleCloseCliente = () => { clearClienteForm(); setOpenCliente(false); };
-  const handleClienteChange = e => { const { name, value } = e.target; setClienteForm(prev=>({ ...prev, [name]: value })); };
+  const handleCloseCliente = () => { setOpenCliente(false); };
+  const handleClienteChange = e => {
+    const { name, value } = e.target;
+    setClienteForm(prev=>({ ...prev, [name]: value }));
+  };
   const handleSaveCliente = () => {
-    const { nombre, apellido, dni, fechaRetiro, fechaDevolucion } = clienteForm;
-    if (!nombre || !apellido || !dni || !fechaRetiro || !fechaDevolucion) {
-      alert('Completa todos los campos obligatorios');
-      return;
-    }
+    // ✅ sin validaciones obligatorias: guardamos lo que haya
     localStorage.setItem('cliente', JSON.stringify(clienteForm));
     setCliente(clienteForm);
     setOpenCliente(false);
   };
 
-  // generar documentos
+  // generar documentos (✅ sin exigir cliente cargado)
   const handleGenerarRemito = () => {
-    if (!cliente.nombre) { handleOpenCliente(); return; }
     const num = generarNumeroRemito();
     // firma: (cliente, items, atendidoPor, numeroRemito, pedidoNumero, jornadasMap, comentario)
-    generarRemitoPDF(cliente, carrito, '', num, pedidoNumero, jornadasMap, comentario);
+    generarRemitoPDF(cliente || {}, carrito || [], '', num, pedidoNumero, jornadasMap || {}, comentario || '');
   };
   const handleGenerarPresupuesto = () => {
-    if (!cliente.nombre) { handleOpenCliente(); return; }
-    const num = generarNumeroPresupuesto(); // acá lo usamos como "fechaEmision" textual / código
+    const num = generarNumeroPresupuesto(); // usado como "código/emisión" fallback
     // firma: (cliente, productosSeleccionados, jornadasMap, fechaEmision, pedidoNumero)
-    generarPresupuestoPDF(cliente, carrito, jornadasMap, num, pedidoNumero);
+    generarPresupuestoPDF(cliente || {}, carrito || [], jornadasMap || {}, num, pedidoNumero || '');
   };
   const handleGenerarSeguro = () => {
-    if (!cliente.nombre) { handleOpenCliente(); return; }
     const num = generarNumeroSeguro();
-    // firma (cliente, productosSeleccionados, atendidoPor/numero?, numeroSeguro, pedidoNumero, jornadasMap)
-    generarSeguroPDF(cliente, carrito, num, pedidoNumero, jornadasMap);
+    // firma: (cliente, productosSeleccionados, numeroSeguro, pedidoNumero, jornadasMap)
+    generarSeguroPDF(cliente || {}, carrito || [], num, pedidoNumero || '', jornadasMap || {});
   };
 
   // categorías
@@ -269,55 +271,54 @@ export default function ProductosPOS() {
         <DialogActions><Button onClick={() => setOpenSerialDialog(false)}>Cancelar</Button></DialogActions>
       </Dialog>
 
-      {/* Diálogo Datos del Cliente */}
+      {/* Diálogo Datos del Cliente (solo Nombre + Fechas) */}
       <Dialog open={openCliente} onClose={handleCloseCliente} fullWidth maxWidth="md">
         <DialogTitle>Datos del Cliente</DialogTitle>
         <DialogContent>
           <Grid container spacing={2}>
-  {/* Nombre */}
-  <Grid item xs={12}>
-    <TextField
-      fullWidth
-      size="small"
-      variant="outlined"
-      name="nombre"
-      label="Nombre"
-      value={clienteForm.nombre || ''}
-      onChange={handleClienteChange}
-    />
-  </Grid>
+            {/* Nombre */}
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                size="small"
+                variant="outlined"
+                name="nombre"
+                label="Nombre"
+                value={clienteForm.nombre || ''}
+                onChange={handleClienteChange}
+              />
+            </Grid>
 
-  {/* Fecha Retiro */}
-  <Grid item xs={12} sm={6}>
-    <TextField
-      fullWidth
-      size="small"
-      variant="outlined"
-      name="fechaRetiro"
-      label="Fecha Retiro"
-      type="datetime-local"
-      InputLabelProps={{ shrink: true }}
-      value={clienteForm.fechaRetiro || ''}
-      onChange={handleClienteChange}
-    />
-  </Grid>
+            {/* Fecha Retiro */}
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                size="small"
+                variant="outlined"
+                name="fechaRetiro"
+                label="Fecha Retiro"
+                type="datetime-local"
+                InputLabelProps={{ shrink:true }}
+                value={clienteForm.fechaRetiro || ''}
+                onChange={handleClienteChange}
+              />
+            </Grid>
 
-  {/* Fecha Devolución */}
-  <Grid item xs={12} sm={6}>
-    <TextField
-      fullWidth
-      size="small"
-      variant="outlined"
-      name="fechaDevolucion"
-      label="Fecha Devolución"
-      type="datetime-local"
-      InputLabelProps={{ shrink: true }}
-      value={clienteForm.fechaDevolucion || ''}
-      onChange={handleClienteChange}
-    />
-  </Grid>
-</Grid>
-
+            {/* Fecha Devolución */}
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                size="small"
+                variant="outlined"
+                name="fechaDevolucion"
+                label="Fecha Devolución"
+                type="datetime-local"
+                InputLabelProps={{ shrink:true }}
+                value={clienteForm.fechaDevolucion || ''}
+                onChange={handleClienteChange}
+              />
+            </Grid>
+          </Grid>
         </DialogContent>
         <DialogActions>
           <Button color="error" onClick={clearClienteForm}>Borrar todo</Button>

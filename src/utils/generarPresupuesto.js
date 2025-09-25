@@ -60,23 +60,16 @@ export default function generarPresupuestoPDF(
   };
 
   // --- Datos del cliente ---
-  const drawClientData = (yStart) => {
-    let y = yStart;
-    doc.setFontSize(12);
-    doc.text("cliente:", M, y);
-    doc.setFontSize(10);
-    doc.text(`${cliente.nombre} ${cliente.apellido}`, M + 70, y);
-    y += 16;
-    doc.text("dni:", M, y);
-    doc.text(cliente.dni, M + 70, y);
-    y += 16;
-    doc.text("teléfono:", M, y);
-    doc.text(cliente.telefono || "-", M + 70, y);
-    y += 16;
-    doc.text("email:", M, y);
-    doc.text(cliente.correo || "-", M + 70, y);
-    return y + 24;
-  };
+ const drawClientData = (yStart) => {
+  let y = yStart;
+  doc.setFontSize(12);
+  doc.text("Cliente:", M, y);
+  doc.setFontSize(10);
+  doc.text(`${cliente.nombre || ""}`, M + 70, y);
+  return y + 24;
+};
+
+
 
   drawHeader();
   let cursorY = drawClientData(140);
