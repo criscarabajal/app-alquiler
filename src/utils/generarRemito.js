@@ -28,12 +28,11 @@ export default function generarRemitoPDF(
   const W = doc.internal.pageSize.getWidth();
   const M = 40;
 
-  // Número visible en el PDF (Pedido N° si existe)
   const numeroVisible = pedidoNumero || numeroRemito;
+  const safe = (v, fallback = "-") => (v || v === 0 ? String(v) : fallback);
 
   // ——— HEADER ———
   const drawHeader = () => {
-    // logos
     const imgP = doc.getImageProperties(logoImg);
     const logoW = 100;
     const logoH = (imgP.height * logoW) / imgP.width;
@@ -44,11 +43,9 @@ export default function generarRemitoPDF(
     const lochH = (lochP.height * lochW) / lochP.width;
     doc.addImage(lochImg, "JPEG", M + logoW + 10, 20, lochW, lochH);
 
-    // Número principal (usa Pedido N° si hay)
+    // Número principal + Pedido N°
     doc.setFontSize(16);
     doc.text(`${numeroVisible}`, W - M, 40, { align: "right" });
-
-    // Pedido N°
     doc.setFontSize(10);
     doc.text(`Pedido N°: ${numeroVisible}`, W - M, 88, { align: "right" });
 
@@ -60,12 +57,16 @@ export default function generarRemitoPDF(
     doc.text("CRONOGRAMA DEL PEDIDO", W / 2, 93, { align: "center" });
   };
 
-  // ——— DATOS CLIENTE ———
+  // ——— DATOS CLIENTE ——— (solo nombre + fechas)
   const drawClientData = () => {
-  doc.setFontSize(9);
-  doc.text(`CLIENTE: ${cliente.nombre || ""}`, M, 110);
-};
+    const retiro = cliente?.fechaRetiro ? formatearFechaHora(new Date(cliente.fechaRetiro)) : "-";
+    const devol = cliente?.fechaDevolucion ? formatearFechaHora(new Date(cliente.fechaDevolucion)) : "-";
 
+    doc.setFontSize(9);
+    doc.text(`CLIENTE: ${safe(cliente?.nombre)}`, M, 110);
+    doc.text(`RETIRO: ${retiro}`, M, 125);
+    doc.text(`DEVOLUCIÓN: ${devol}`, M, 140);
+  };
 
   // primera página
   drawHeader();
@@ -89,10 +90,8 @@ export default function generarRemitoPDF(
 
   // Comentario (usa parámetro o localStorage si no vino)
   const comentarioLinea = (comentario ?? localStorage.getItem("comentario") ?? "").trim();
-
   const body = [];
 
-  // Fila de comentario debajo del encabezado
   if (comentarioLinea) {
     body.push([{
       content: comentarioLinea,
@@ -108,11 +107,10 @@ export default function generarRemitoPDF(
     }]);
   }
 
-  // Filas por categorías + productos
   Object.entries(grupos).forEach(([cat, items]) => {
     body.push([{ content: cat, colSpan: 4, styles: { fillColor: [235, 235, 235], fontStyle: "bold" } }]);
     items.forEach(i => {
-      const lineas = [i.nombre];
+      const lineas = [i.nombre || "-"];
       if (i.incluye) lineas.push(...(String(i.incluye).split("\n")));
       body.push([i.cantidad, lineas.join("\n"), i.serial || "", ""]);
     });
@@ -135,7 +133,6 @@ export default function generarRemitoPDF(
   // ——— PIE: totales, pago, firmas ———
   const endY = doc.lastAutoTable.finalY + 20;
 
-  // Total sin IVA considerando jornadas
   const totalSinIVA = productosSeleccionados.reduce((sum, item, idx) => {
     const qty = parseInt(item.cantidad, 10) || 0;
     const j = parseInt(jornadasMap[idx], 10) || 1;
@@ -177,10 +174,9 @@ export default function generarRemitoPDF(
   doc.setFontSize(6);
   doc.text("guardias no incluidas", M, sigY + 30);
 
-  // —— NOMBRE DE ARCHIVO SEGÚN “Pedido N°”
   const nombreArchivo = pedidoNumero
     ? `Remito_${pedidoNumero}.pdf`
-    : `Remito_${cliente.apellido}_${numeroRemito}.pdf`;
+    : `Remito_${(cliente?.nombre || "cliente")}_${numeroRemito}.pdf`;
 
   doc.save(nombreArchivo);
 }

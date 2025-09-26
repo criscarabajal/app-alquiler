@@ -3,10 +3,8 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import logoImg from "../assets/logo.png";
 import lochImg from "../assets/loch.jpeg";
+import { formatearFechaHora } from "./Fecha";
 
-/**
- * Genera un número de presupuesto único para la fecha actual.
- */
 export function generarNumeroPresupuesto() {
   const ahora = new Date();
   const dd = String(ahora.getDate()).padStart(2, "0");
@@ -17,10 +15,6 @@ export function generarNumeroPresupuesto() {
   return `${fecha}-${contador}`;
 }
 
-/**
- * Genera el PDF del presupuesto con agrupación por categoría,
- * columna Detalle, número de pedido, precios formateados y jerarquía de totales.
- */
 export default function generarPresupuestoPDF(
   cliente,
   productosSeleccionados,
@@ -32,8 +26,8 @@ export default function generarPresupuestoPDF(
   const W = doc.internal.pageSize.getWidth();
   const M = 40;
 
-  // Número visible en el PDF: usa Pedido N° si existe
   const numeroVisible = pedidoNumero || fechaEmision;
+  const safe = (v, fb = "-") => (v || v === 0 ? String(v) : fb);
 
   // --- Encabezado ---
   const drawHeader = () => {
@@ -48,7 +42,7 @@ export default function generarPresupuestoPDF(
     doc.addImage(lochImg, "JPEG", M + logoW + 10, 40, lochW, lochH);
 
     doc.setFontSize(18);
-    doc.text(`Presupuesto N°: ${numeroVisible}`, W - M, 60, { align: "right" });
+    doc.text(`Presupuesto N°: ${safe(numeroVisible)}`, W - M, 60, { align: "right" });
 
     doc.setFontSize(10);
     const hoy = new Date();
@@ -59,17 +53,27 @@ export default function generarPresupuestoPDF(
     doc.line(M, 110, W - M, 110);
   };
 
-  // --- Datos del cliente ---
- const drawClientData = (yStart) => {
-  let y = yStart;
-  doc.setFontSize(12);
-  doc.text("Cliente:", M, y);
-  doc.setFontSize(10);
-  doc.text(`${cliente.nombre || ""}`, M + 70, y);
-  return y + 24;
-};
+  // --- Datos del cliente (solo nombre + fechas) ---
+  const drawClientData = (yStart) => {
+    const retiro = cliente?.fechaRetiro ? formatearFechaHora(new Date(cliente.fechaRetiro)) : "-";
+    const devol = cliente?.fechaDevolucion ? formatearFechaHora(new Date(cliente.fechaDevolucion)) : "-";
 
+    let y = yStart;
+    doc.setFontSize(12);
+    doc.text("Cliente:", M, y);
+    doc.setFontSize(10);
+    doc.text(safe(cliente?.nombre), M + 70, y);
 
+    y += 16;
+    doc.text("Retiro:", M, y);
+    doc.text(safe(retiro), M + 70, y);
+
+    y += 16;
+    doc.text("Devolución:", M, y);
+    doc.text(safe(devol), M + 70, y);
+
+    return y + 24;
+  };
 
   drawHeader();
   let cursorY = drawClientData(140);
@@ -85,20 +89,20 @@ export default function generarPresupuestoPDF(
   const headers = ["detalle", "cant.", "jornadas", "p.u.", "subtotal"];
   const body = [];
   Object.entries(grupos).forEach(([cat, items]) => {
-    body.push([{ content: cat, colSpan: 5, styles: { fillColor: [235,235,235], fontStyle: 'bold' } }]);
+    body.push([{ content: cat, colSpan: 5, styles: { fillColor: [235, 235, 235], fontStyle: "bold" } }]);
     items.forEach((i) => {
       const qty = parseInt(i.cantidad, 10) || 0;
       const j = parseInt(jornadasMap[i.__idxGlobal], 10) || 1;
       const price = parseFloat(i.precio) || 0;
       const subtotal = qty * price * j;
-      const detalleLines = [i.nombre];
+      const detalleLines = [i.nombre || "-"];
       if (i.incluye) detalleLines.push(...String(i.incluye).split("\n"));
       body.push([
         detalleLines.join("\n"),
         qty,
         j,
-        `$${price.toFixed(0)}`,
-        `$${subtotal.toFixed(0)}`
+        `$${Number.isFinite(price) ? price.toFixed(0) : "0"}`,
+        `$${Number.isFinite(subtotal) ? subtotal.toFixed(0) : "0"}`
       ]);
     });
   });
@@ -128,67 +132,64 @@ export default function generarPresupuestoPDF(
     const price = parseFloat(itm.precio) || 0;
     return sum + qty * price * j;
   }, 0);
+
   const appliedDiscount = parseFloat(localStorage.getItem("descuento")) || 0;
   const descuentoMonto = (totalBruto * appliedDiscount) / 100;
   const totalTrasDescuento = totalBruto - descuentoMonto;
   const ivaMonto = totalTrasDescuento * 0.21;
   const totalConIVA = totalTrasDescuento + ivaMonto;
 
-  // Subtotal
   doc.setFontSize(10);
   doc.setFont(undefined, 'normal');
-  doc.text(`Subtotal: $${totalBruto.toFixed(0)}`, W - M, finalY, { align: "right" });
-  // Descuento
+  doc.text(`Subtotal: $${(Number.isFinite(totalBruto) ? totalBruto : 0).toFixed(0)}`, W - M, finalY, { align: "right" });
+
   doc.text(
-    `Descuento (${appliedDiscount}%): -$${descuentoMonto.toFixed(0)}`,
+    `Descuento (${appliedDiscount}%): -$${(Number.isFinite(descuentoMonto) ? descuentoMonto : 0).toFixed(0)}`,
     W - M,
     finalY + 16,
     { align: "right" }
   );
-  // Precio total sin IVA (bold 15pt)
+
   doc.setFontSize(15);
   doc.setFont(undefined, 'bold');
   doc.text(
-    `PRECIO TOTAL SIN IVA: $${totalTrasDescuento.toFixed(0)}`,
+    `PRECIO TOTAL SIN IVA: $${(Number.isFinite(totalTrasDescuento) ? totalTrasDescuento : 0).toFixed(0)}`,
     W - M,
     finalY + 36,
     { align: "right" }
   );
-  // IVA
+
   doc.setFontSize(10);
   doc.setFont(undefined, 'normal');
   doc.text(
-    `IVA (21%): $${ivaMonto.toFixed(0)}`,
+    `IVA (21%): $${(Number.isFinite(ivaMonto) ? ivaMonto : 0).toFixed(0)}`,
     W - M,
     finalY + 60,
     { align: "right" }
   );
-  // Precio final con IVA
   doc.text(
-    `Precio final con iva: $${totalConIVA.toFixed(0)}`,
+    `Precio final con iva: $${(Number.isFinite(totalConIVA) ? totalConIVA : 0).toFixed(0)}`,
     W - M,
     finalY + 76,
     { align: "right" }
   );
 
-  // --- Aclaraciones en minúsculas ---
+  // Notas
   const notasY = finalY + 100;
   doc.setFontSize(9);
   doc.text("Aclaraciones:", M, notasY);
   doc.setFontSize(8);
-  const lines = [
+  [
     "Validez del presupuesto: 20 días",
     "Formas de pago: efectivo • mercadopago • transferencia",
     "El alquiler de equipo no incluye seguro",
     "El cliente es responsable por extravio, robo, daño y/o faltantes",
     "El alquiler no incluye transporte ni guardia"
-  ];
-  lines.forEach((ln, i) => doc.text(ln, M, notasY + 12 + i * 12));
+  ].forEach((ln, i) => doc.text(ln, M, notasY + 12 + i * 12));
 
-  // —— NOMBRE DE ARCHIVO SEGÚN “Pedido N°”
   const nombreArchivo = pedidoNumero
-    ? `Presupuesto_${pedidoNumero}.pdf`
-    : `${cliente.apellido}_${fechaEmision}.pdf`;
+    ? `Presupuesto_${String(pedidoNumero)}.pdf`
+    : `${String(cliente?.nombre || "cliente")}_${String(fechaEmision)}.pdf`;
 
   doc.save(nombreArchivo);
 }
