@@ -5,178 +5,166 @@ import logoImg from "../assets/logo.png";
 import lochImg from "../assets/loch.jpeg";
 import { formatearFechaHora } from "./Fecha";
 
-export function generarNumeroRemito() {
-  const ahora = new Date();
-  const dd = String(ahora.getDate()).padStart(2, "0");
-  const mm = String(ahora.getMonth() + 1).padStart(2, "0");
-  const yy = String(ahora.getFullYear()).slice(-2);
-  const fecha = `${dd}${mm}${yy}`;
-  const contador = Math.floor(Math.random() * 1000) + 1;
-  return `${fecha}-${contador}`;
-}
-
 export default function generarRemitoPDF(
   cliente,
-  productosSeleccionados,
-  atendidoPor,
-  numeroRemito,
+  productosSeleccionados = [],
+  numeroRemito = "",
   pedidoNumero = "",
   jornadasMap = {},
-  comentario = ""            // nota libre
+  comentario = ""
 ) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
   const M = 40;
+  const numeroVisible = pedidoNumero || numeroRemito || "";
 
-  const numeroVisible = pedidoNumero || numeroRemito;
-  const safe = (v, fallback = "-") => (v || v === 0 ? String(v) : fallback);
-
-  // ——— HEADER ———
+  // --- HEADER ---
   const drawHeader = () => {
-    const imgP = doc.getImageProperties(logoImg);
-    const logoW = 100;
-    const logoH = (imgP.height * logoW) / imgP.width;
-    doc.addImage(logoImg, "PNG", M, 20, logoW, logoH);
+    try {
+      const logoW = 100;
+      const imgP = doc.getImageProperties(logoImg);
+      const logoH = (imgP.height * logoW) / imgP.width;
+      doc.addImage(logoImg, "PNG", M, 20, logoW, logoH);
 
-    const lochP = doc.getImageProperties(lochImg);
-    const lochW = 60;
-    const lochH = (lochP.height * lochW) / lochP.width;
-    doc.addImage(lochImg, "JPEG", M + logoW + 10, 20, lochW, lochH);
-
-    // Número principal + Pedido N°
+      const lochW = 60;
+      const imgL = doc.getImageProperties(lochImg);
+      const lochH = (imgL.height * lochW) / imgL.width;
+      doc.addImage(lochImg, "JPEG", M + logoW + 10, 20, lochW, lochH);
+    } catch {}
     doc.setFontSize(16);
-    doc.text(`${numeroVisible}`, W - M, 40, { align: "right" });
+    doc.text(`Remito N°: ${numeroVisible}`, W - M, 40, { align: "right" });
     doc.setFontSize(10);
-    doc.text(`Pedido N°: ${numeroVisible}`, W - M, 88, { align: "right" });
-
-    // título
+    const hoy = new Date();
+    const emision = `${String(hoy.getDate()).padStart(2,"0")}/${String(hoy.getMonth()+1).padStart(2,"0")}/${hoy.getFullYear()}`;
+    doc.text(`Emisión: ${emision}`, W - M, 55, { align: "right" });
     doc.setFillColor(242, 242, 242);
-    doc.rect(M, 80, W - 2 * M, 18, "F");
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(10);
-    doc.text("CRONOGRAMA DEL PEDIDO", W / 2, 93, { align: "center" });
+    doc.rect(M, 80, W - 2*M, 18, "F");
+    doc.text("CRONOGRAMA DEL PEDIDO", W/2, 93, { align:"center" });
   };
 
-  // ——— DATOS CLIENTE ——— (solo nombre + fechas)
   const drawClientData = () => {
-    const retiro = cliente?.fechaRetiro ? formatearFechaHora(new Date(cliente.fechaRetiro)) : "-";
-    const devol = cliente?.fechaDevolucion ? formatearFechaHora(new Date(cliente.fechaDevolucion)) : "-";
-
     doc.setFontSize(9);
-    doc.text(`CLIENTE: ${safe(cliente?.nombre)}`, M, 110);
-    doc.text(`RETIRO: ${retiro}`, M, 125);
-    doc.text(`DEVOLUCIÓN: ${devol}`, M, 140);
+    doc.text(`CLIENTE: ${cliente?.nombre || "-"}`, M, 110);
+    doc.text(
+      `RETIRO: ${
+        cliente?.fechaRetiro ? formatearFechaHora(new Date(cliente.fechaRetiro)) : "-"
+      }`,
+      M,
+      125
+    );
+    doc.text(
+      `DEVOLUCIÓN: ${
+        cliente?.fechaDevolucion ? formatearFechaHora(new Date(cliente.fechaDevolucion)) : "-"
+      }`,
+      M,
+      140
+    );
   };
 
-  // primera página
   drawHeader();
   drawClientData();
 
-  // ——— TABLA ITEMS ———
-  const cols = [
-    { header: "Cantidad", dataKey: "cantidad" },
-    { header: "Detalle", dataKey: "detalle" },
-    { header: "N° de Serie", dataKey: "serie" },
-    { header: "Cod.", dataKey: "cod" }
-  ];
+  // --- DATOS DE DÍAS (gruposDias del localStorage) ---
+  let gruposDias = {};
+  try {
+    const raw = localStorage.getItem("gruposDias");
+    gruposDias = raw ? JSON.parse(raw) : {};
+  } catch {}
 
-  // Agrupar por categoría
-  const grupos = {};
-  productosSeleccionados.forEach((item, idx) => {
-    const cat = item.categoria || "Sin categoría";
-    if (!grupos[cat]) grupos[cat] = [];
-    grupos[cat].push({ ...item, __idx: idx });
-  });
-
-  // Comentario (usa parámetro o localStorage si no vino)
-  const comentarioLinea = (comentario ?? localStorage.getItem("comentario") ?? "").trim();
+  const headers = ["Cant.", "Detalle", "Serie", "Cod."];
   const body = [];
 
+  const comentarioLinea = (comentario ?? localStorage.getItem("comentario") ?? "").trim();
   if (comentarioLinea) {
     body.push([{
       content: comentarioLinea,
       colSpan: 4,
-      styles: { 
-        fillColor: [245, 245, 245], 
-        fontStyle: "bold", 
-        fontSize: 14,
-        halign: "left",
-        valign: "middle",
-        cellPadding: { top: 8, bottom: 8, left: 4, right: 4 }
-      }
+      styles: { fillColor: [245,245,245], fontStyle: "bold", fontSize: 12 }
     }]);
   }
 
-  Object.entries(grupos).forEach(([cat, items]) => {
-    body.push([{ content: cat, colSpan: 4, styles: { fillColor: [235, 235, 235], fontStyle: "bold" } }]);
-    items.forEach(i => {
-      const lineas = [i.nombre || "-"];
-      if (i.incluye) lineas.push(...(String(i.incluye).split("\n")));
-      body.push([i.cantidad, lineas.join("\n"), i.serial || "", ""]);
+  const ORDEN_DIAS = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
+  let hayGrupos = Object.values(gruposDias).some(arr => Array.isArray(arr) && arr.length>0);
+
+  if (hayGrupos) {
+    ORDEN_DIAS.forEach(dia => {
+      const itemsDia = Array.isArray(gruposDias[dia]) ? gruposDias[dia] : [];
+      if (!itemsDia.length) return;
+      body.push([{
+        content: `Día: ${dia}`,
+        colSpan: 4,
+        styles: { fillColor:[220,230,255], fontStyle:"bold" }
+      }]);
+
+      // Agrupar por categoría dentro del día
+      const porCat = {};
+      itemsDia.forEach(it => {
+        const cat = it.categoria || "Sin categoría";
+        if (!porCat[cat]) porCat[cat] = [];
+        porCat[cat].push(it);
+      });
+
+      Object.entries(porCat).forEach(([cat, items])=>{
+        body.push([{
+          content: cat,
+          colSpan: 4,
+          styles: { fillColor:[235,235,235], fontStyle:"bold" }
+        }]);
+        items.forEach(i=>{
+          const detalle = [i.nombre];
+          if (i.incluye) detalle.push(...String(i.incluye).split("\n"));
+          body.push([
+            i.cantidad || 1,
+            detalle.join("\n"),
+            i.serial || "",
+            ""
+          ]);
+        });
+      });
     });
-  });
-
-  autoTable(doc, {
-    startY: 180,
-    margin: { top: 180, left: M, right: M },
-    head: [cols.map(c => c.header)],
-    body,
-    styles: { fontSize: 8, cellPadding: 2 },
-    theme: "grid",
-    headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0] },
-    didDrawPage: () => {
-      drawHeader();
-      drawClientData();
-    }
-  });
-
-  // ——— PIE: totales, pago, firmas ———
-  const endY = doc.lastAutoTable.finalY + 20;
-
-  const totalSinIVA = productosSeleccionados.reduce((sum, item, idx) => {
-    const qty = parseInt(item.cantidad, 10) || 0;
-    const j = parseInt(jornadasMap[idx], 10) || 1;
-    const precio = parseFloat(item.precio) || 0;
-    return sum + qty * precio * j;
-  }, 0);
-
-  const appliedDiscount = parseFloat(localStorage.getItem("descuento")) || 0;
-  const totalConDescuento = totalSinIVA * (1 - appliedDiscount / 100);
-
-  const boxX = W - M - 150;
-  const boxH = appliedDiscount > 0 ? 60 : 40;
-  doc.rect(boxX, endY - 10, 150, boxH);
-
-  doc.setFontSize(10);
-  doc.text("PRECIO s/IVA", boxX + 75, endY + 2, { align: "center" });
-  if (appliedDiscount > 0) {
-    doc.text(`Descuento ${appliedDiscount}%`, boxX + 75, endY + 20, { align: "center" });
-    doc.text(`$${totalConDescuento.toFixed(2)}`, boxX + 75, endY + 38, { align: "center" });
-  } else {
-    doc.text(`$${totalSinIVA.toFixed(2)}`, boxX + 75, endY + 20, { align: "center" });
   }
 
-  doc.rect(boxX, endY + boxH + 10, 150, 70);
-  doc.text("PAGO", boxX + 75, endY + boxH + 25, { align: "center" });
-  doc.text("Efectivo [ ]", boxX + 5, endY + boxH + 40);
-  doc.text("MP Guido [ ]", boxX + 5, endY + boxH + 55);
-  doc.text("MP Jona [ ]", boxX + 5, endY + boxH + 70);
+  // Si no hay gruposDias o también hay productos sueltos:
+  if (productosSeleccionados.length > 0) {
+    if (hayGrupos) {
+      body.push([{ content:"Otros productos sin día", colSpan:4, styles:{ fillColor:[240,240,240], fontStyle:"bold" } }]);
+    }
+    productosSeleccionados.forEach(item=>{
+      const detalle = [item.nombre];
+      if (item.incluye) detalle.push(...String(item.incluye).split("\n"));
+      body.push([
+        item.cantidad || 1,
+        detalle.join("\n"),
+        item.serial || "",
+        ""
+      ]);
+    });
+  }
 
-  const sigY = endY + boxH + 200;
-  const segment = (W - 2 * M) / 3;
-  ["FIRMA", "ACLARACIÓN", "D.N.I."].forEach((txt, i) => {
-    const x = M + i * segment;
-    doc.line(x, sigY, x + segment - 20, sigY);
-    doc.setFontSize(8);
-    doc.text(txt, x, sigY + 12);
+  if (body.length===0) {
+    body.push([{content:"No hay productos para mostrar.",colSpan:4,styles:{halign:"center"}}]);
+  }
+
+  autoTable(doc,{
+    startY:160,
+    head:[headers],
+    body,
+    styles:{ fontSize:8, cellPadding:3 },
+    headStyles:{ fillColor:[230,230,230] },
+    theme:"grid",
+    didDrawPage:()=>{ drawHeader(); drawClientData(); }
   });
 
-  doc.setFontSize(6);
-  doc.text("guardias no incluidas", M, sigY + 30);
+  const endY = doc.lastAutoTable.finalY + 20;
+  const total = productosSeleccionados.reduce((sum,i)=>{
+    const q = parseInt(i.cantidad,10)||0;
+    const j = parseInt(jornadasMap[i.__idx]||1,10);
+    const p = parseFloat(i.precio)||0;
+    return sum + q*p*j;
+  },0);
 
-  const nombreArchivo = pedidoNumero
-    ? `Remito_${pedidoNumero}.pdf`
-    : `Remito_${(cliente?.nombre || "cliente")}_${numeroRemito}.pdf`;
+  doc.setFontSize(10);
+  doc.text(`Total: $${total.toFixed(2)}`, W - M, endY, {align:"right"});
 
-  doc.save(nombreArchivo);
+  doc.save(`Remito_${cliente?.nombre||"cliente"}.pdf`);
 }
