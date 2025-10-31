@@ -53,25 +53,13 @@ export default function generarPresupuestoPDF(
     doc.line(M, 110, W - M, 110);
   };
 
-  // --- Datos del cliente (solo nombre + fechas) ---
+  // --- Datos del cliente (solo nombre) ---
   const drawClientData = (yStart) => {
-    const retiro = cliente?.fechaRetiro ? formatearFechaHora(new Date(cliente.fechaRetiro)) : "-";
-    const devol = cliente?.fechaDevolucion ? formatearFechaHora(new Date(cliente.fechaDevolucion)) : "-";
-
     let y = yStart;
     doc.setFontSize(12);
     doc.text("Cliente:", M, y);
     doc.setFontSize(10);
     doc.text(safe(cliente?.nombre), M + 70, y);
-
-    y += 16;
-    doc.text("Retiro:", M, y);
-    doc.text(safe(retiro), M + 70, y);
-
-    y += 16;
-    doc.text("Devolución:", M, y);
-    doc.text(safe(devol), M + 70, y);
-
     return y + 24;
   };
 
