@@ -87,10 +87,32 @@ export default function ProductosPOS() {
     generarRemitoPDF(cliente || {}, carrito || [], '', num, pedidoNumero, jornadasMap || {}, comentario || '');
   };
   const handleGenerarPresupuesto = () => {
-    const num = generarNumeroPresupuesto(); // usado como "código/emisión" fallback
-    // firma: (cliente, productosSeleccionados, jornadasMap, fechaEmision, pedidoNumero)
-    generarPresupuestoPDF(cliente || {}, carrito || [], jornadasMap || {}, num, pedidoNumero || '');
-  };
+  if (!cliente?.nombre) { handleOpenCliente(); return; }
+  const nro = String(pedidoNumero || '').trim();
+  if (!nro) { alert('Ingresá un "Pedido N°" en el carrito para generar el Presupuesto.'); return; }
+
+  const fecha = new Date().toLocaleDateString('es-AR');
+  // Firma: (cliente, productos, jornadasMap, fechaEmision, pedidoNumero)
+  generarPresupuestoPDF(cliente, carrito, jornadasMap, fecha, nro);
+
+  // Reiniciar por completo: borrar todo y recargar la app
+  try { localStorage.clear(); } catch {}
+
+  // (opcional) resetear estados en memoria por si la recarga tarda un instante
+  setCarrito([]);
+  setCliente({});
+  setClienteForm({ nombre: "", fechaRetiro: "", fechaDevolucion: "" });
+  setPedidoNumero("");
+  setJornadasMap({});
+  setComentario("");
+  setGrupoActual("");
+
+  // Pequeña espera para asegurar que el archivo se dispare antes de recargar
+  setTimeout(() => {
+    window.location.reload();
+  }, 500);
+};
+
   const handleGenerarSeguro = () => {
     const num = generarNumeroSeguro();
     // firma: (cliente, productosSeleccionados, numeroSeguro, pedidoNumero, jornadasMap)
