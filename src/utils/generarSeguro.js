@@ -27,6 +27,18 @@ export default function generarSeguroPDF(
   const W = doc.internal.pageSize.getWidth();
   const M = 40;
 
+  // Valores seguros para número de pedido / seguro (evita [object Object])
+  const pedidoRef =
+    typeof pedidoNumero === "string" || typeof pedidoNumero === "number"
+      ? String(pedidoNumero)
+      : "";
+  const seguroRef =
+    typeof numeroSeguro === "string" || typeof numeroSeguro === "number"
+      ? String(numeroSeguro)
+      : "";
+
+  const referencia = pedidoRef || seguroRef || "sin-numero";
+
   // —— HEADER ——
   const drawHeader = () => {
     const imgP = doc.getImageProperties(logoImg);
@@ -40,10 +52,10 @@ export default function generarSeguroPDF(
     doc.addImage(lochImg, "JPEG", M + logoW + 10, 20, lochW, lochH);
 
     doc.setFontSize(16);
-    doc.text(`${numeroSeguro}`, W - M, 40, { align: "right" });
+    doc.text(`${seguroRef}`, W - M, 40, { align: "right" });
 
     doc.setFontSize(10);
-    doc.text(`Pedido N°: ${pedidoNumero}`, W - M, 88, { align: "right" });
+    doc.text(`Pedido N°: ${pedidoRef || "-"}`, W - M, 88, { align: "right" });
 
     doc.setFillColor(242, 242, 242);
     doc.rect(M, 80, W - 2 * M, 18, "F");
@@ -54,8 +66,13 @@ export default function generarSeguroPDF(
 
   // —— CLIENT DATA ——
   const drawClientData = () => {
+    const nombre = cliente?.nombre || "";
+    const apellido = cliente?.apellido || "";
+    const nombreCompleto = [nombre, apellido].filter(Boolean).join(" ");
+
     doc.setFontSize(9);
-    doc.text(`CLIENTE: ${cliente.nombre} ${cliente.apellido}`, M, 110);
+    doc.text(`CLIENTE: ${nombreCompleto}`, M, 110);
+
     doc.text(
       `RETIRO: ${formatearFechaHora(new Date(cliente.fechaRetiro))}`,
       M,
@@ -92,7 +109,6 @@ export default function generarSeguroPDF(
     body.push({ _category: cat });
     items.forEach(i => {
       const qty = parseInt(i.cantidad, 10) || 0;
-      const unit = parseFloat(i.precio) || 0;
       const valorRep = parseFloat(i.valorReposicion) || 0;
       const parcialVal = qty * valorRep;
 
@@ -138,7 +154,7 @@ export default function generarSeguroPDF(
   });
 
   // —— FOOTER TOTAL ——
-  const totalRep = productosSeleccionados.reduce((sum, item, idx) => {
+  const totalRep = productosSeleccionados.reduce((sum, item) => {
     const qty = parseInt(item.cantidad, 10) || 0;
     const valorRep = parseFloat(item.valorReposicion) || 0;
     return sum + qty * valorRep;
@@ -163,5 +179,11 @@ export default function generarSeguroPDF(
     { maxWidth: W - 2 * M }
   );
 
-  doc.save(`Seguro_${cliente.apellido}_${numeroSeguro}.pdf`);
+  // —— NOMBRE DE ARCHIVO (sin undefined / sin [object Object]) ——
+  const nombre = cliente?.nombre || "";
+  const apellido = cliente?.apellido || "";
+  const nombreArchivoCliente =
+    [nombre, apellido].filter(Boolean).join("_") || "cliente";
+
+  doc.save(`Seguro_${nombreArchivoCliente}_${referencia}.pdf`);
 }
