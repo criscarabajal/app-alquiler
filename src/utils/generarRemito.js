@@ -15,21 +15,37 @@ export function generarNumeroRemito() {
   return `${fecha}-${contador}`;
 }
 
+// Helper para el nombre del archivo
+const sanitize = (s) =>
+  String(s || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9 _()-]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+// 🔹 NUEVO helper: asegura que solo usamos string o número
+const toIdString = (val) => {
+  if (typeof val === "string" || typeof val === "number") {
+    return String(val).trim();
+  }
+  return "";
+};
+
 export default function generarRemitoPDF(
   cliente,
   productosSeleccionados,
-  atendidoPor,
   numeroRemito,
   pedidoNumero = "",
   jornadasMap = {},
-  comentario = ""            // nota libre
+  comentario = "" // nota libre
 ) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
   const M = 40;
 
-  const numeroVisible = pedidoNumero || numeroRemito;
-  const safe = (v, fallback = "-") => (v || v === 0 ? String(v) : fallback);
+  // 👉 Prioriza el número que viene del input "Pedido N°"
+  const remitoEfectivo = toIdString(pedidoNumero) || toIdString(numeroRemito);
+  const numeroVisible = remitoEfectivo;
 
   // ——— HEADER ———
   const drawHeader = () => {
@@ -43,13 +59,14 @@ export default function generarRemitoPDF(
     const lochH = (lochP.height * lochW) / lochP.width;
     doc.addImage(lochImg, "JPEG", M + logoW + 10, 20, lochW, lochH);
 
-    // Número principal + Pedido N°
+    // Número principal (usa Pedido N° si hay)
     doc.setFontSize(16);
     doc.text(`${numeroVisible}`, W - M, 40, { align: "right" });
+
+    // Pedido N°
     doc.setFontSize(10);
     doc.text(`Pedido N°: ${numeroVisible}`, W - M, 88, { align: "right" });
 
-    // título
     doc.setFillColor(242, 242, 242);
     doc.rect(M, 80, W - 2 * M, 18, "F");
     doc.setTextColor(0, 0, 0);
@@ -57,22 +74,22 @@ export default function generarRemitoPDF(
     doc.text("CRONOGRAMA DEL PEDIDO", W / 2, 93, { align: "center" });
   };
 
-  // ——— DATOS CLIENTE ——— (solo nombre + fechas)
   const drawClientData = () => {
-    const retiro = cliente?.fechaRetiro ? formatearFechaHora(new Date(cliente.fechaRetiro)) : "-";
-    const devol = cliente?.fechaDevolucion ? formatearFechaHora(new Date(cliente.fechaDevolucion)) : "-";
-
     doc.setFontSize(9);
-    doc.text(`CLIENTE: ${safe(cliente?.nombre)}`, M, 110);
-    doc.text(`RETIRO: ${retiro}`, M, 125);
-    doc.text(`DEVOLUCIÓN: ${devol}`, M, 140);
+    doc.text(`CLIENTE: ${cliente.nombre || ""} ${cliente.apellido || ""}`, M, 110);
+    doc.text(`D.N.I.: ${cliente.dni || ""}`, M, 125);
+    doc.text(`TEL: ${cliente.telefono || ""}`, M, 140);
+    doc.text(`RETIRO: ${formatearFechaHora(new Date(cliente.fechaRetiro || ""))}`, M, 160);
+    doc.text(
+      `DEVOLUCIÓN: ${formatearFechaHora(new Date(cliente.fechaDevolucion || ""))}`,
+      M + 300,
+      160
+    );
   };
 
-  // primera página
   drawHeader();
   drawClientData();
 
-  // ——— TABLA ITEMS ———
   const cols = [
     { header: "Cantidad", dataKey: "cantidad" },
     { header: "Detalle", dataKey: "detalle" },
@@ -80,25 +97,17 @@ export default function generarRemitoPDF(
     { header: "Cod.", dataKey: "cod" }
   ];
 
-  // Agrupar por categoría
-  const grupos = {};
-  productosSeleccionados.forEach((item, idx) => {
-    const cat = item.categoria || "Sin categoría";
-    if (!grupos[cat]) grupos[cat] = [];
-    grupos[cat].push({ ...item, __idx: idx });
-  });
-
-  // Comentario (usa parámetro o localStorage si no vino)
   const comentarioLinea = (comentario ?? localStorage.getItem("comentario") ?? "").trim();
   const body = [];
 
+  // Fila de comentario debajo del encabezado
   if (comentarioLinea) {
     body.push([{
       content: comentarioLinea,
       colSpan: 4,
-      styles: { 
-        fillColor: [245, 245, 245], 
-        fontStyle: "bold", 
+      styles: {
+        fillColor: [245, 245, 245],
+        fontStyle: "bold",
         fontSize: 14,
         halign: "left",
         valign: "middle",
@@ -107,12 +116,63 @@ export default function generarRemitoPDF(
     }]);
   }
 
-  Object.entries(grupos).forEach(([cat, items]) => {
-    body.push([{ content: cat, colSpan: 4, styles: { fillColor: [235, 235, 235], fontStyle: "bold" } }]);
-    items.forEach(i => {
-      const lineas = [i.nombre || "-"];
-      if (i.incluye) lineas.push(...(String(i.incluye).split("\n")));
-      body.push([i.cantidad, lineas.join("\n"), i.serial || "", ""]);
+  // --- Agrupar por Día/Separador (grupo) y dentro por Categoría ---
+  const normalizar = (s) => (String(s || "")).trim();
+  const itemsConIdx = productosSeleccionados.map((it, idx) => ({ ...it, __idx: idx }));
+
+  const grupos = itemsConIdx.reduce((acc, it) => {
+    const g = normalizar(it.grupo) || "Sin grupo";
+    if (!acc[g]) acc[g] = [];
+    acc[g].push(it);
+    return acc;
+  }, {});
+
+  const nombresGrupo = Object.keys(grupos)
+    .sort((a, b) => (a === "Sin grupo") - (b === "Sin grupo"));
+
+  nombresGrupo.forEach((gName) => {
+    // Encabezado del grupo (día / separador)
+    body.push([{
+      content: gName,
+      colSpan: 4,
+      styles: {
+        fillColor: [210, 210, 210],
+        fontStyle: "bold",
+        fontSize: 12,
+        halign: "left",
+        valign: "middle",
+        cellPadding: { top: 6, bottom: 6, left: 4, right: 4 }
+      }
+    }]);
+
+    // Sub-agrupación por categoría dentro del grupo
+    const porCategoria = grupos[gName].reduce((acc, it) => {
+      const cat = it.categoria || "Sin categoría";
+      if (!acc[cat]) acc[cat] = [];
+      acc[cat].push(it);
+      return acc;
+    }, {});
+
+    Object.entries(porCategoria).forEach(([cat, items]) => {
+      // Encabezado de categoría
+      body.push([{
+        content: cat,
+        colSpan: 4,
+        styles: {
+          fillColor: [235, 235, 235],
+          fontStyle: "bold",
+          halign: "left",
+          valign: "middle",
+          cellPadding: { top: 4, bottom: 4, left: 4, right: 4 }
+        }
+      }]);
+
+      // Filas de productos
+      items.forEach((i) => {
+        const lineas = [i.nombre];
+        if (i.incluye) lineas.push(...String(i.incluye).split("\n"));
+        body.push([i.cantidad, lineas.join("\n"), i.serial || "", ""]);
+      });
     });
   });
 
@@ -124,15 +184,12 @@ export default function generarRemitoPDF(
     styles: { fontSize: 8, cellPadding: 2 },
     theme: "grid",
     headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0] },
-    didDrawPage: () => {
-      drawHeader();
-      drawClientData();
-    }
+    didDrawPage: () => { drawHeader(); drawClientData(); }
   });
 
-  // ——— PIE: totales, pago, firmas ———
   const endY = doc.lastAutoTable.finalY + 20;
 
+  // Totales (sin IVA, con jornadas y descuento)
   const totalSinIVA = productosSeleccionados.reduce((sum, item, idx) => {
     const qty = parseInt(item.cantidad, 10) || 0;
     const j = parseInt(jornadasMap[idx], 10) || 1;
@@ -143,6 +200,7 @@ export default function generarRemitoPDF(
   const appliedDiscount = parseFloat(localStorage.getItem("descuento")) || 0;
   const totalConDescuento = totalSinIVA * (1 - appliedDiscount / 100);
 
+  // Caja de totales
   const boxX = W - M - 150;
   const boxH = appliedDiscount > 0 ? 60 : 40;
   doc.rect(boxX, endY - 10, 150, boxH);
@@ -156,12 +214,14 @@ export default function generarRemitoPDF(
     doc.text(`$${totalSinIVA.toFixed(2)}`, boxX + 75, endY + 20, { align: "center" });
   }
 
+  // Opciones de pago
   doc.rect(boxX, endY + boxH + 10, 150, 70);
   doc.text("PAGO", boxX + 75, endY + boxH + 25, { align: "center" });
   doc.text("Efectivo [ ]", boxX + 5, endY + boxH + 40);
   doc.text("MP Guido [ ]", boxX + 5, endY + boxH + 55);
   doc.text("MP Jona [ ]", boxX + 5, endY + boxH + 70);
 
+  // Firmas
   const sigY = endY + boxH + 200;
   const segment = (W - 2 * M) / 3;
   ["FIRMA", "ACLARACIÓN", "D.N.I."].forEach((txt, i) => {
@@ -174,9 +234,10 @@ export default function generarRemitoPDF(
   doc.setFontSize(6);
   doc.text("guardias no incluidas", M, sigY + 30);
 
-  const nombreArchivo = pedidoNumero
-    ? `Remito_${pedidoNumero}.pdf`
-    : `Remito_${(cliente?.nombre || "cliente")}_${numeroRemito}.pdf`;
-
-  doc.save(nombreArchivo);
+  // Nombre de archivo: REMITO (N°) + Nombre
+  const nombreCompleto = sanitize(
+    [cliente?.nombre, cliente?.apellido].filter(Boolean).join(" ")
+  );
+  const filename = `REMITO (${sanitize(remitoEfectivo)}) ${nombreCompleto}.pdf`;
+  doc.save(filename);
 }
