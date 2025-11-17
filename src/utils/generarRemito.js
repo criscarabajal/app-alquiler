@@ -222,9 +222,8 @@ export default function generarRemitoPDF(
   // Opciones de pago
   doc.rect(boxX, endY + boxH + 10, 150, 70);
   doc.text("PAGO", boxX + 75, endY + boxH + 25, { align: "center" });
-  doc.text("Efectivo [ ]", boxX + 5, endY + boxH + 40);
-  doc.text("MP Guido [ ]", boxX + 5, endY + boxH + 55);
-  doc.text("MP Jona [ ]", boxX + 5, endY + boxH + 70);
+  doc.text("Efectivo [  ]", boxX + 5, endY + boxH + 40);
+  doc.text("QR [  ]", boxX + 5, endY + boxH + 55);
 
   // Firmas
   const sigY = endY + boxH + 200;
