@@ -23,7 +23,7 @@ const sanitize = (s) =>
     .replace(/\s+/g, " ")
     .trim();
 
-// 🔹 NUEVO helper: asegura que solo usamos string o número
+// Helper: asegura que solo usamos string o número para IDs
 const toIdString = (val) => {
   if (typeof val === "string" || typeof val === "number") {
     return String(val).trim();
@@ -79,7 +79,11 @@ export default function generarRemitoPDF(
     doc.text(`CLIENTE: ${cliente.nombre || ""} ${cliente.apellido || ""}`, M, 110);
     doc.text(`D.N.I.: ${cliente.dni || ""}`, M, 125);
     doc.text(`TEL: ${cliente.telefono || ""}`, M, 140);
-    doc.text(`RETIRO: ${formatearFechaHora(new Date(cliente.fechaRetiro || ""))}`, M, 160);
+    doc.text(
+      `RETIRO: ${formatearFechaHora(new Date(cliente.fechaRetiro || ""))}`,
+      M,
+      160
+    );
     doc.text(
       `DEVOLUCIÓN: ${formatearFechaHora(new Date(cliente.fechaDevolucion || ""))}`,
       M + 300,
@@ -121,29 +125,30 @@ export default function generarRemitoPDF(
   const itemsConIdx = productosSeleccionados.map((it, idx) => ({ ...it, __idx: idx }));
 
   const grupos = itemsConIdx.reduce((acc, it) => {
-    const g = normalizar(it.grupo) || "Sin grupo";
+    const g = normalizar(it.grupo) || "";   // ⬅️ ya NO usamos "Sin grupo"
     if (!acc[g]) acc[g] = [];
     acc[g].push(it);
     return acc;
   }, {});
 
-  const nombresGrupo = Object.keys(grupos)
-    .sort((a, b) => (a === "Sin grupo") - (b === "Sin grupo"));
+  const nombresGrupo = Object.keys(grupos); // ⬅️ definimos nombresGrupo
 
   nombresGrupo.forEach((gName) => {
     // Encabezado del grupo (día / separador)
-    body.push([{
-      content: gName,
-      colSpan: 4,
-      styles: {
-        fillColor: [210, 210, 210],
-        fontStyle: "bold",
-        fontSize: 12,
-        halign: "left",
-        valign: "middle",
-        cellPadding: { top: 6, bottom: 6, left: 4, right: 4 }
-      }
-    }]);
+    if (gName.trim()) {   // ⬅️ solo dibuja encabezado si tiene texto
+      body.push([{
+        content: gName,
+        colSpan: 4,
+        styles: {
+          fillColor: [210, 210, 210],
+          fontStyle: "bold",
+          fontSize: 12,
+          halign: "left",
+          valign: "middle",
+          cellPadding: { top: 6, bottom: 6, left: 4, right: 4 }
+        }
+      }]);
+    }
 
     // Sub-agrupación por categoría dentro del grupo
     const porCategoria = grupos[gName].reduce((acc, it) => {
