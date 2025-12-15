@@ -339,22 +339,53 @@ const handleCloseSnackbar = () => {
     generarRemitoPDF(clienteParaPDF, carrito, nro, nro, jornadasMap);
   };
 
-  const handleGenerarPresupuesto = () => {
-    const nro = String(pedidoNumero || '').trim();
-    if (!nro) {
-      alert('Ingresá un "Pedido N°" en el carrito para generar el Presupuesto.');
-      return;
-    }
-    const fecha = new Date().toLocaleDateString('es-AR');
+  const handleGenerarPresupuesto = async () => {
+  const nro = String(pedidoNumero || '').trim();
 
-    const clienteParaPDF = {
-      ...clienteForm,
-      nombre: (clienteForm.nombre || '').trim(),
-    };
+  if (!nro) {
+    alert('Ingresá un "Pedido N°" en el carrito para generar el Presupuesto.');
+    return;
+  }
 
-    generarPresupuestoPDF(clienteParaPDF, carrito, jornadasMap, fecha, nro);
-    setJornadasMap({});
+  if (carrito.length === 0) {
+    alert('El carrito está vacío.');
+    return;
+  }
+
+  const fecha = new Date().toLocaleDateString('es-AR');
+
+  const clienteParaPDF = {
+    ...clienteForm,
+    nombre: (clienteForm.nombre || '').trim(),
   };
+
+  // ✅ 1. Guardado automático en Firebase
+  try {
+    await guardarPedidoFirebase({
+      pedidoNumero: nro,
+      cliente: clienteForm,
+      carrito,
+      jornadasMap,
+      usuario,
+      tipo: 'presupuesto',
+      fechaCreacion: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error(error);
+    alert('Error al guardar el pedido en Firebase.');
+    return;
+  }
+
+  // ✅ 2. Aviso
+  alert('Pedido guardado. Generando presupuesto');
+
+  // ✅ 3. Generar PDF (flujo normal)
+  generarPresupuestoPDF(clienteParaPDF, carrito, jornadasMap, fecha, nro);
+
+  setJornadasMap({});
+};
+
+
 
   const handleGenerarSeguro = () => {
     const nro = String(pedidoNumero || '').trim();
