@@ -30,6 +30,12 @@ import generarPresupuestoPDF from '../utils/generarPresupuesto';
 import generarSeguroPDF from '../utils/generarSeguro';
 import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
+import logoImg from '../assets/logo.png';
+import {
+  guardarPedidoFirebase,
+  cargarPedidoFirebase,
+} from "../services/pedidosService";
+
 
 const defaultCats = [
   'LUCES',
@@ -44,7 +50,66 @@ const defaultCats = [
   'SONIDO',
 ];
 
-export default function ProductosPOS() {
+export default function ProductosPOS({ usuario }) {
+  
+  const handleGuardarPedido = async () => {
+  const nro = String(pedidoNumero || "").trim();
+
+  if (!nro) {
+    alert('Ingresá un "Pedido N°" para guardar.');
+    return;
+  }
+
+  if (carrito.length === 0) {
+    alert("El carrito está vacío.");
+    return;
+  }
+
+  try {
+    await guardarPedidoFirebase({
+      pedidoNumero: nro,
+      cliente: clienteForm,
+      carrito,
+      jornadasMap,
+      usuario,
+    });
+
+    alert("Pedido guardado correctamente ☁️");
+  } catch (err) {
+    console.error(err);
+    alert("Error al guardar el pedido. Ver consola.");
+  }
+};
+
+const handleCargarPedido = async () => {
+  const nro = String(pedidoNumero || "").trim();
+
+  if (!nro) {
+    alert('Ingresá un "Pedido N°" para cargar.');
+    return;
+  }
+
+  try {
+    const data = await cargarPedidoFirebase(nro);
+
+    if (!data) {
+      alert("No se encontró ningún pedido con ese número.");
+      return;
+    }
+
+    setClienteForm(data.cliente || initialClienteForm);
+    setCarrito(data.carrito || []);
+    setJornadasMap(data.jornadasMap || {});
+    setGrupoActual("");
+
+    alert("Pedido cargado correctamente ✅");
+  } catch (err) {
+    console.error(err);
+    alert("Error al cargar el pedido. Ver consola.");
+  }
+};
+
+
   const theme = useTheme();
   const HEADER = 72;
   const FOOTER = 72;
@@ -53,9 +118,23 @@ export default function ProductosPOS() {
   const ROW_GAP = 16;
   const SLIDES_PER_ROW = 5;
 
+  const [snackbar, setSnackbar] = useState({
+  open: false,
+  message: "",
+  severity: "success", // success | error | warning | info
+});
+
+const showSnackbar = (message, severity = "info") => {
+  setSnackbar({ open: true, message, severity });
+};
+
+const handleCloseSnackbar = () => {
+  setSnackbar((s) => ({ ...s, open: false }));
+};
+
+
   // ===== Pedido / separador =====
   const [pedidoNumero, setPedidoNumero] = useState('');
-  const [comentario, setComentario] = useState('');
   const [grupoActual, setGrupoActual] = useState(''); // Día/separador activo
 
   // ===== Categorías nav (editables) =====
@@ -174,7 +253,7 @@ export default function ProductosPOS() {
         ...prod,
         serial,
         cantidad: 1,
-        grupo: (grupoActual || comentario || '').trim(),
+        grupo: (grupoActual || '').trim(),
         valorReposicion: prod.valorReposicion,
       },
     ]);
@@ -231,12 +310,8 @@ export default function ProductosPOS() {
   const handleOpenCliente = () => setOpenCliente(true);
   const handleCloseCliente = () => setOpenCliente(false);
 
-  const [clienteForm, setClienteForm] = useState(
-    JSON.parse(localStorage.getItem('cliente')) || initialClienteForm
-  );
-  const [cliente, setCliente] = useState(
-    JSON.parse(localStorage.getItem('cliente')) || {}
-  );
+  const [clienteForm, setClienteForm] = useState(initialClienteForm);
+  const [cliente, setCliente] = useState({}); // se mantiene pero ya no va a localStorage
 
   const handleClienteChange = (e) => {
     const { name, value } = e.target;
@@ -244,92 +319,201 @@ export default function ProductosPOS() {
   };
 
   const handleSaveCliente = () => {
-    const { nombre, fechaRetiro, fechaDevolucion } = clienteForm;
-    if (!nombre || !fechaRetiro || !fechaDevolucion) {
-      alert('Completá nombre, fecha de retiro y fecha de devolución');
-      return;
-    }
-    localStorage.setItem('cliente', JSON.stringify(clienteForm));
     setCliente(clienteForm);
     setOpenCliente(false);
   };
 
   // ===== Generar PDFs =====
   const handleGenerarRemito = () => {
-    if (!cliente?.nombre) {
-      handleOpenCliente();
-      return;
-    }
     const nro = String(pedidoNumero || '').trim();
     if (!nro) {
       alert('Ingresá un "Pedido N°" en el carrito para generar el Remito.');
       return;
     }
-    generarRemitoPDF(cliente, carrito, nro, nro, jornadasMap, comentario);
+
+    const clienteParaPDF = {
+      ...clienteForm,
+      nombre: (clienteForm.nombre || '').trim(),
+    };
+
+    generarRemitoPDF(clienteParaPDF, carrito, nro, nro, jornadasMap);
   };
 
   const handleGenerarPresupuesto = () => {
-    if (!cliente?.nombre) {
-      handleOpenCliente();
-      return;
-    }
     const nro = String(pedidoNumero || '').trim();
     if (!nro) {
       alert('Ingresá un "Pedido N°" en el carrito para generar el Presupuesto.');
       return;
     }
     const fecha = new Date().toLocaleDateString('es-AR');
-    // (cliente, productosSeleccionados, jornadasMap, fechaEmision, pedidoNumero)
-    generarPresupuestoPDF(cliente, carrito, jornadasMap, fecha, nro);
 
-    // 👇 Reiniciar contador de jornadas en "Detalles de productos"
+    const clienteParaPDF = {
+      ...clienteForm,
+      nombre: (clienteForm.nombre || '').trim(),
+    };
+
+    generarPresupuestoPDF(clienteParaPDF, carrito, jornadasMap, fecha, nro);
     setJornadasMap({});
   };
 
   const handleGenerarSeguro = () => {
-    if (!cliente?.nombre) {
-      handleOpenCliente();
+    const nro = String(pedidoNumero || '').trim();
+    if (!nro) {
+      alert('Ingresá un "Pedido N°" en el carrito para generar el Seguro.');
       return;
     }
-    const nro = String(pedidoNumero || '').trim();
     const fecha = new Date().toLocaleDateString('es-AR');
-    // (cliente, productosSeleccionados, atendidoPor, numeroSeguro, pedidoNumero, jornadasMap)
-    generarSeguroPDF(cliente, carrito, fecha, nro, nro, jornadasMap);
+
+    const clienteParaPDF = {
+      ...clienteForm,
+      nombre: (clienteForm.nombre || '').trim(),
+    };
+
+    generarSeguroPDF(clienteParaPDF, carrito, fecha, nro, nro, jornadasMap);
   };
 
   return (
-    <Box>
-      {/* HEADER búsqueda */}
-      <Box
+    <Box
+      sx={{
+        width: '100vw',
+        height: '100vh',
+        overflow: 'hidden',
+        bgcolor: 'grey.900',
+      }}
+    >
+      {/* HEADER: nombre + fechas a la izquierda / buscador + logo a la derecha */}
+<Box
+  sx={{
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: HEADER,
+    bgcolor: 'grey.900',
+    display: 'flex',
+    alignItems: 'center',
+    px: 2,
+    zIndex: 1200,
+  }}
+>
+  <Box
+    sx={{
+      width: '100%',
+      maxWidth: '1920px',
+      mx: 'auto',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    }}
+  >
+    {/* Izquierda: Nombre + Fechas */}
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+      {/* Nombre */}
+      <TextField
+        size="small"
+        variant="outlined"
+        placeholder="Nombre"
+        value={clienteForm.nombre || ''}
+        onChange={(e) =>
+          setClienteForm((prev) => ({ ...prev, nombre: e.target.value }))
+        }
+        InputLabelProps={{ shrink: true }}
         sx={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: HEADER,
-          bgcolor: 'grey.900',
-          display: 'flex',
-          alignItems: 'center',
-          px: 2,
-          zIndex: 1200,
+          minWidth: 140,
+          maxWidth: 220,
+          bgcolor: 'grey.800',
+          borderRadius: 1,
+          '& .MuiOutlinedInput-input': { color: '#fff' },
+          '& .MuiInputLabel-root': { color: '#bbb' },
         }}
-      >
-        <TextField
-          size="small"
-          variant="outlined"
-          placeholder="Buscar producto"
-          value={buscar}
-          onChange={(e) => setBuscar(e.target.value)}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <SearchIcon />
-              </InputAdornment>
-            ),
-          }}
-          sx={{ width: '28vw', bgcolor: 'grey.800', borderRadius: 1 }}
-        />
-      </Box>
+      />
+
+      {/* Fecha Retiro */}
+      <TextField
+        size="small"
+        variant="outlined"
+        type="datetime-local"
+        label="Retiro"
+        name="fechaRetiro"
+        InputLabelProps={{ shrink: true }}
+        value={clienteForm.fechaRetiro || ''}
+        onChange={handleClienteChange}
+        sx={{
+          minWidth: 170,
+          maxWidth: 230,
+          bgcolor: 'grey.800',
+          borderRadius: 1,
+          '& .MuiOutlinedInput-input': {
+            color: '#fff',
+            fontSize: '0.75rem',
+          },
+          '& .MuiInputLabel-root': { color: '#bbb' },
+        }}
+      />
+
+      {/* Fecha Devolución */}
+      <TextField
+        size="small"
+        variant="outlined"
+        type="datetime-local"
+        label="Devolución"
+        name="fechaDevolucion"
+        InputLabelProps={{ shrink: true }}
+        value={clienteForm.fechaDevolucion || ''}
+        onChange={handleClienteChange}
+        sx={{
+          minWidth: 170,
+          maxWidth: 230,
+          bgcolor: 'grey.800',
+          borderRadius: 1,
+          '& .MuiOutlinedInput-input': {
+            color: '#fff',
+            fontSize: '0.75rem',
+          },
+          '& .MuiInputLabel-root': { color: '#bbb' },
+        }}
+      />
+    </Box>
+
+    {/* Derecha: Buscador + Logo */}
+    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+      {/* Buscador */}
+      <TextField
+        size="small"
+        variant="outlined"
+        placeholder="Buscar producto"
+        value={buscar}
+        onChange={(e) => setBuscar(e.target.value)}
+        InputProps={{
+          endAdornment: (
+            <InputAdornment position="end">
+              <SearchIcon />
+            </InputAdornment>
+          ),
+        }}
+        sx={{
+          width: '20vw',
+          minWidth: 200,
+          maxWidth: 350,
+          bgcolor: 'grey.800',
+          borderRadius: 1,
+          marginRight: '3px',   // 👈 separación exacta
+        }}
+      />
+
+      {/* Logo */}
+      <img
+        src={logoImg}
+        alt="logo"
+        style={{
+          height: '65px',
+          opacity: 0.9,
+        }}
+      />
+    </Box>
+  </Box>
+</Box>
+
 
       {/* Carrito */}
       <Box
@@ -347,12 +531,12 @@ export default function ProductosPOS() {
       >
         <Carrito
           productosSeleccionados={carrito}
-          onIncrementar={i => {
+          onIncrementar={(i) => {
             const c = [...carrito];
             c[i].cantidad++;
             setCarrito(c);
           }}
-          onDecrementar={i => {
+          onDecrementar={(i) => {
             const c = [...carrito];
             if (c[i].cantidad > 1) c[i].cantidad--;
             setCarrito(c);
@@ -362,41 +546,36 @@ export default function ProductosPOS() {
             c[i].cantidad = v === '' ? '' : Math.max(1, parseInt(v, 10));
             setCarrito(c);
           }}
-          onEliminar={i => {
+          onEliminar={(i) => {
             const c = [...carrito];
             c.splice(i, 1);
             setCarrito(c);
 
-            // 🔁 Reindexar jornadasMap para que los índices sigan matcheando
-            setJornadasMap(prev => {
+            setJornadasMap((prev) => {
               const next = {};
-              Object.keys(prev).forEach(kStr => {
+              Object.keys(prev).forEach((kStr) => {
                 const k = parseInt(kStr, 10);
                 if (Number.isNaN(k)) return;
                 if (k < i) {
-                  next[k] = prev[k];        // mismos índices antes del borrado
+                  next[k] = prev[k];
                 } else if (k > i) {
-                  next[k - 1] = prev[k];    // corremos uno hacia atrás
+                  next[k - 1] = prev[k];
                 }
-                // si k === i lo saltamos (era el que se borró)
               });
               return next;
             });
           }}
           jornadasMap={jornadasMap}
           setJornadasMap={setJornadasMap}
-          comentario={comentario}
-          setComentario={setComentario}
           pedidoNumero={pedidoNumero}
           setPedidoNumero={setPedidoNumero}
           grupoActual={grupoActual}
           setGrupoActual={setGrupoActual}
           onClearAll={() => {
             setCarrito([]);
-            setJornadasMap({}); // 🧹 limpias también las jornadas
+            setJornadasMap({});
           }}
         />
-
       </Box>
 
       {/* Productos + filtros */}
@@ -538,19 +717,6 @@ export default function ProductosPOS() {
         <DialogTitle>Datos del Cliente</DialogTitle>
         <DialogContent>
           <Grid container spacing={2}>
-            {/* Nombre */}
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                size="small"
-                variant="outlined"
-                name="nombre"
-                label="Nombre"
-                value={clienteForm.nombre || ''}
-                onChange={handleClienteChange}
-              />
-            </Grid>
-
             {/* Fecha Retiro */}
             <Grid item xs={12} sm={6}>
               <TextField
@@ -624,28 +790,30 @@ export default function ProductosPOS() {
 
       {/* Bottom bar */}
       <BottomNav
-        onOpenCliente={handleOpenCliente}
-        onGenerarRemito={handleGenerarRemito}
-        onGenerarPresupuesto={handleGenerarPresupuesto}
-        onGenerarSeguro={handleGenerarSeguro}
-        onCancelar={() => {
-          if (
-            window.confirm(
-              '¿Seguro que querés cancelar TODO el pedido? Esta acción no se puede deshacer.'
-            )
-          ) {
-            setCarrito([]);
-            setCliente({});
-            setClienteForm(initialClienteForm);
-            setPedidoNumero('');
-            setJornadasMap({});
-            setComentario('');
-            setGrupoActual('');
-            localStorage.clear();
-            window.location.reload();
-          }
-        }}
-      />
+  onOpenCliente={handleOpenCliente}
+  onGenerarRemito={handleGenerarRemito}
+  onGenerarPresupuesto={handleGenerarPresupuesto}
+  onGenerarSeguro={handleGenerarSeguro}
+  onGuardarPedido={handleGuardarPedido}   // 🟦
+  onCargarPedido={handleCargarPedido}     // 🟨
+  onCancelar={() => {
+    if (
+      window.confirm(
+        '¿Seguro que querés cancelar TODO el pedido? Esta acción no se puede deshacer.'
+      )
+    ) {
+      setCarrito([]);
+      setCliente({});
+      setClienteForm(initialClienteForm);
+      setPedidoNumero('');
+      setJornadasMap({});
+      setGrupoActual('');
+      localStorage.clear();
+      window.location.reload();
+    }
+  }}
+/>
+
     </Box>
   );
 }
