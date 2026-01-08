@@ -315,7 +315,8 @@ export default function Carrito({
               </Box>
 
               {/* LISTA DETALLADA */}
-              {productosSeleccionados.map((item, idx) => {
+              {[...productosSeleccionados].reverse().map((item, idx) => {
+
                 const j = jornadasMap[idx] || 1;
                 const qty = parseInt(item.cantidad, 10) || 1;
 
