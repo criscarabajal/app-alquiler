@@ -325,7 +325,7 @@ export default function Carrito({
                     key={idx}
                     sx={{
                       display: 'grid',
-                      gridTemplateColumns: '1fr auto',
+                      gridTemplateColumns: 'auto 1fr auto',
                       columnGap: 2,
                       alignItems: 'center',
                       mb: 2,
@@ -335,7 +335,41 @@ export default function Carrito({
                       bgcolor: '#2a2a2a'
                     }}
                   >
-                    {/* izquierda */}
+                    {/* 1. Cantidad (Izquierda) */}
+                    <Box display="flex" flexDirection="column" alignItems="center">
+                      <Typography variant="caption" color="gray">
+                        Cantidad
+                      </Typography>
+                      <Box
+                        display="flex"
+                        alignItems="center"
+                        sx={{
+                          border: '1px dashed gray',
+                          borderRadius: 1,
+                          p: '2px 4px',
+                          bgcolor: '#2a2a2a'
+                        }}
+                      >
+                        <IconButton
+                          size="small"
+                          onClick={() => onDecrementar(idx)}
+                          disabled={qty <= 1}
+                        >
+                          <Remove fontSize="small" />
+                        </IconButton>
+
+                        <Typography mx={0.5}>{qty}</Typography>
+
+                        <IconButton
+                          size="small"
+                          onClick={() => onIncrementar(idx)}
+                        >
+                          <Add fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    </Box>
+
+                    {/* 2. Descripción (Centro) */}
                     <Box>
                       <Typography fontWeight={600}>{item.nombre}</Typography>
                       <Typography variant="body2">
@@ -343,90 +377,47 @@ export default function Carrito({
                       </Typography>
                     </Box>
 
-                    {/* 🔥 CANTIDAD + JORNADAS EN LA MISMA FILA */}
-                    <Box
-                      display="flex"
-                      flexDirection="row"
-                      alignItems="center"
-                      gap={3}
-                      
-                    >
-                      {/* Cantidad */}
-                      <Box display="flex" flexDirection="column" alignItems="center">
-                        <Typography variant="caption" color="gray">
-                          Cantidad
-                        </Typography>
-                        <Box
-                          display="flex"
-                          alignItems="center"
-                          sx={{
-                            border: '1px dashed gray',
-                            borderRadius: 1,
-                            p: '2px 4px',
-                            bgcolor: '#2a2a2a'
-                          }}
+                    {/* 3. Jornadas (Derecha) */}
+                    <Box display="flex" flexDirection="column" alignItems="center">
+                      <Typography variant="caption" color="gray">
+                        Jornadas
+                      </Typography>
+
+                      <Box
+                        display="flex"
+                        alignItems="center"
+                        sx={{
+                          border: '1px dashed gray',
+                          borderRadius: 1,
+                          p: '2px 4px',
+                          bgcolor: '#2a2a2a'
+                        }}
+                      >
+                        <IconButton
+                          size="small"
+                          onClick={() =>
+                            setJornadasMap(prev => ({
+                              ...prev,
+                              [idx]: Math.max(1, j - 1)
+                            }))
+                          }
                         >
-                          <IconButton
-                            size="small"
-                            onClick={() => onDecrementar(idx)}
-                            disabled={qty <= 1}
-                          >
-                            <Remove fontSize="small" />
-                          </IconButton>
+                          <Remove fontSize="small" />
+                        </IconButton>
 
-                          <Typography mx={0.5}>{qty}</Typography>
+                        <Typography mx={0.5}>{j}</Typography>
 
-                          <IconButton
-                            size="small"
-                            onClick={() => onIncrementar(idx)}
-                          >
-                            <Add fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      </Box>
-
-                      {/* Jornadas */}
-                      <Box display="flex" flexDirection="column" alignItems="center">
-                        <Typography variant="caption" color="gray">
-                          Jornadas
-                        </Typography>
-
-                        <Box
-                          display="flex"
-                          alignItems="center"
-                          sx={{
-                            border: '1px dashed gray',
-                            borderRadius: 1,
-                            p: '2px 4px',
-                            bgcolor: '#2a2a2a'
-                          }}
+                        <IconButton
+                          size="small"
+                          onClick={() =>
+                            setJornadasMap(prev => ({
+                              ...prev,
+                              [idx]: j + 1
+                            }))
+                          }
                         >
-                          <IconButton
-                            size="small"
-                            onClick={() =>
-                              setJornadasMap(prev => ({
-                                ...prev,
-                                [idx]: Math.max(1, j - 1)
-                              }))
-                            }
-                          >
-                            <Remove fontSize="small" />
-                          </IconButton>
-
-                          <Typography mx={0.5}>{j}</Typography>
-
-                          <IconButton
-                            size="small"
-                            onClick={() =>
-                              setJornadasMap(prev => ({
-                                ...prev,
-                                [idx]: j + 1
-                              }))
-                            }
-                          >
-                            <Add fontSize="small" />
-                          </IconButton>
-                        </Box>
+                          <Add fontSize="small" />
+                        </IconButton>
                       </Box>
                     </Box>
                   </Box>
