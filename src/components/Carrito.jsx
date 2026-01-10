@@ -1,21 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Box,
-  Typography,
-  TextField,
-  IconButton,
-  List,
-  ListItem,
-  Divider,
-  Paper,
-  Button,
-  MenuItem,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions
-} from '@mui/material';
-import { Add, Remove, Delete, MoreVert } from '@mui/icons-material';
+import { Plus, Minus, Trash2, MoreVertical, X, Check, Save } from 'lucide-react';
 
 export default function Carrito({
   productosSeleccionados,
@@ -100,342 +84,180 @@ export default function Carrito({
   const ordenados = productosSeleccionados.map((p, i) => ({ p, i })).reverse();
 
   return (
-    <Paper
-      sx={{
-        width: '100%',
-        bgcolor: '#1e1e1e',
-        color: '#fff',
-        p: 2,
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        borderRadius: 2
-      }}
-    >
+    <div className="h-full flex flex-col bg-dark-900 border-r border-white/10 p-4">
       {/* Header pedido */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-        <Typography variant="h6" sx={{ fontSize: '1rem', whiteSpace: 'nowrap' }}>
-          Pedido N°
-        </Typography>
-
-        <TextField
-          size="small"
-          variant="outlined"
+      <div className="flex items-center gap-2 mb-4 bg-dark-800 p-2 rounded-xl border border-white/5">
+        <span className="font-bold text-white whitespace-nowrap text-sm">Pedido N°</span>
+        <input
           value={pedidoNumero}
           onChange={e => setPedidoNumero(e.target.value)}
-          sx={{
-            width: 80,
-            bgcolor: '#2c2c2c',
-            borderRadius: 1,
-            '& .MuiInputBase-input': { color: '#fff', padding: '4px', textAlign: 'center' },
-            '& .MuiOutlinedInput-notchedOutline': { borderColor: '#555' }
-          }}
+          className="bg-transparent border-b border-white/20 text-center text-white w-20 focus:outline-none focus:border-primary font-mono"
+          placeholder="000"
         />
-
-
-
-        <IconButton size="small" onClick={() => setOpenIncludes(true)}>
-          <MoreVert sx={{ color: '#fff' }} />
-        </IconButton>
-      </Box>
+        <button
+          onClick={() => setOpenIncludes(true)}
+          className="ml-auto p-1.5 hover:bg-white/10 rounded-full transition-colors text-gray-400 hover:text-white"
+        >
+          <MoreVertical size={18} />
+        </button>
+      </div>
 
       {/* Lista */}
-      <List sx={{ flex: 1, overflowY: 'auto' }}>
+      <div className="flex-1 overflow-y-auto pr-1 space-y-2">
         {ordenados.map(({ p: item, i: idx }) => (
-          <React.Fragment key={idx}>
-            <ListItem
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                bgcolor: '#2c2c2c',
-                borderRadius: 1,
-                mb: 1,
-                py: 1,
-                px: 1
-              }}
-            >
-              <Typography
-                sx={{
-                  fontSize: '0.825rem',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  flexGrow: 1
-                }}
-              >
+          <div key={idx} className="bg-dark-800 rounded-xl p-3 border border-white/5 group hover:border-white/10 transition-colors">
+            <div className="flex justify-between items-start mb-2">
+              <span className="text-sm font-medium text-gray-200 line-clamp-2 leading-tight">
                 {item.nombre}
-              </Typography>
+              </span>
+              <button
+                onClick={() => onEliminar(idx)}
+                className="text-gray-600 hover:text-red-400 transition-colors p-1 -mr-1 -mt-1"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
 
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <IconButton size="small" onClick={() => onDecrementar(idx)}>
-                  <Remove />
-                </IconButton>
-
-                <TextField
-                  value={item.cantidad}
-                  onChange={e => onCantidadChange(idx, e.target.value)}
-                  size="small"
-                  inputProps={{ style: { textAlign: 'center', width: 32 } }}
-                  sx={{ bgcolor: '#2c2c2c', borderRadius: 1 }}
-                />
-
-                <IconButton size="small" onClick={() => onIncrementar(idx)}>
-                  <Add />
-                </IconButton>
-
-                <IconButton size="small" color="error" onClick={() => onEliminar(idx)}>
-                  <Delete />
-                </IconButton>
-              </Box>
-            </ListItem>
-
-            <Divider sx={{ borderColor: '#333', mb: 1 }} />
-          </React.Fragment>
+            <div className="flex items-center justify-between bg-black/20 rounded-lg p-1">
+              <button onClick={() => onDecrementar(idx)} className="p-1 hover:text-white text-gray-400">
+                <Minus size={14} />
+              </button>
+              <input
+                value={item.cantidad}
+                onChange={e => onCantidadChange(idx, e.target.value)}
+                className="w-8 text-center bg-transparent text-sm font-mono focus:outline-none text-white"
+              />
+              <button onClick={() => onIncrementar(idx)} className="p-1 hover:text-white text-gray-400">
+                <Plus size={14} />
+              </button>
+            </div>
+            <div className="text-xs text-right mt-1 text-gray-500 font-mono">
+              ${parseFloat(item.precio).toLocaleString()}
+            </div>
+          </div>
         ))}
-      </List>
+      </div>
 
       {/* Totales */}
-      <Box mt={1} textAlign="right">
-        <Typography>Subtotal: ${totalConJornadas.toLocaleString()}</Typography>
+      <div className="mt-4 pt-4 border-t border-white/10 text-right space-y-1">
+        <div className="text-sm text-gray-400">Subtotal: <span className="text-white">${totalConJornadas.toLocaleString()}</span></div>
 
         {appliedDiscount > 0 && (
-          <>
-            <Typography variant="body2">
-              Descuento ({appliedDiscount}%): -${discountAmount.toLocaleString()}
-            </Typography>
-            <Typography fontWeight="bold">
-              Total: ${finalTotal.toLocaleString()}
-            </Typography>
-          </>
+          <div className="text-xs text-primary">
+            Descuento ({appliedDiscount}%): -${discountAmount.toLocaleString()}
+          </div>
         )}
 
-        <Typography fontWeight="bold" mt={1}>
-          Total + IVA (21%): $
-          {totalWithIva.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-        </Typography>
-      </Box>
+        <div className="text-xl font-bold text-white">
+          ${finalTotal.toLocaleString()}
+        </div>
+        <div className="text-xs text-gray-500">
+          + IVA: ${(totalWithIva).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+        </div>
+      </div>
 
-      {/* Descuentos */}
-      <Box mt={2} display="flex" flexDirection="column" gap={1}>
-        <TextField
-          select
-          label="Descuento"
-          size="small"
-          value={discount}
-          onChange={e => setDiscount(e.target.value)}
-          SelectProps={{
-            MenuProps: {
-              anchorOrigin: {
-                vertical: 'bottom',
-                horizontal: 'left',
-              },
-              transformOrigin: {
-                vertical: 'bottom',
-                horizontal: 'left',
-              },
-              getContentAnchorEl: null, // importante en MUI v4 (ignorado en MUI v5)
-              PaperProps: {
-                sx: {
-                  mt: '-8px',     // empuja el menú hacia arriba visualmente
-                }
-              }
-            }
-          }}
-          sx={{ bgcolor: '#2c2c2c', borderRadius: 1 }}
+      {/* Descuentos y Acciones */}
+      <div className="mt-4 flex flex-col gap-2">
+        <div className="flex gap-2">
+          <select
+            value={discount}
+            onChange={e => setDiscount(e.target.value)}
+            className="flex-1 bg-dark-800 text-sm text-gray-300 border border-white/10 rounded-lg px-2 py-2 focus:outline-none focus:border-white/30"
+          >
+            <option value="0">Sin dcto</option>
+            <option value="10">10%</option>
+            <option value="20">20%</option>
+            <option value="25">25%</option>
+            <option value="especial">Especial</option>
+          </select>
+          <button
+            onClick={handleApplyDiscount}
+            className="bg-dark-800 border border-white/10 text-white px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition-colors"
+          >
+            Aplicar
+          </button>
+        </div>
+        <button
+          onClick={onClearAll}
+          className="w-full py-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors border border-transparent hover:border-red-500/20"
         >
-          <MenuItem value="0">Ninguno</MenuItem>
-          <MenuItem value="10">10%</MenuItem>
-          <MenuItem value="20">20%</MenuItem>
-          <MenuItem value="25">25%</MenuItem>
-          <MenuItem value="especial">Especial</MenuItem>
-        </TextField>
+          Vaciar Carrito
+        </button>
+      </div>
 
-        <Button variant="contained" size="small" onClick={handleApplyDiscount}>
-          Aplicar descuento
-        </Button>
+      {/* DETALLES DE PRODUCTOS MODAL */}
+      {openIncludes && (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpenIncludes(false)} />
+          <div className="card w-full max-w-4xl max-h-[90vh] flex flex-col relative z-20 animate-fade-in-up">
+            <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-4">
+              <h3 className="font-bold text-lg">Detalles y Jornadas</h3>
+              <button onClick={() => setOpenIncludes(false)}><X size={20} className="text-gray-400 hover:text-white" /></button>
+            </div>
 
-        <Button variant="outlined" color="error" size="small" onClick={onClearAll}>
-          Borrar todo
-        </Button>
-      </Box>
-
-      {/* 🔥 DIALOG DETALLES DE PRODUCTOS */}
-      <Dialog
-        open={openIncludes}
-        onClose={() => setOpenIncludes(false)}
-        maxWidth="lg"
-        PaperProps={{ sx: { width: '80vw', height: '80vh' } }}
-      >
-        <DialogTitle>Detalles de productos</DialogTitle>
-        <DialogContent dividers sx={{ overflowY: 'auto' }}>
-          {productosSeleccionados.length ? (
-            <>
-              {/* Controles masivos */}
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1.5,
-                  mb: 2,
-                  p: 1,
-                  border: '1px dashed #666',
-                  borderRadius: 1,
-                  bgcolor: '#222'
-                }}
-              >
-                <Typography sx={{ mr: 1, fontWeight: 600 }}>
-                  Jornadas (todas):
-                </Typography>
-
-                <IconButton size="small" onClick={() => bumpAllJornadas(-1)}>
-                  <Remove fontSize="small" />
-                </IconButton>
-
-                <TextField
-                  size="small"
+            <div className="flex-1 overflow-y-auto p-1">
+              {/* Mass control */}
+              <div className="flex items-center gap-2 mb-4 p-3 bg-dark-800 rounded-xl border border-white/5">
+                <span className="text-sm font-bold text-gray-400">Todas las jornadas:</span>
+                <button onClick={() => bumpAllJornadas(-1)} className="p-1 bg-black/40 rounded hover:text-white text-gray-400"><Minus size={16} /></button>
+                <input
                   type="number"
                   value={massJornadas}
                   onChange={(e) => setMassJornadas(e.target.value)}
-                  inputProps={{ min: 1, style: { textAlign: 'center', width: 70 } }}
-                  sx={{ bgcolor: '#1e1e1e', borderRadius: 1 }}
-                  placeholder="n°"
+                  className="w-12 text-center bg-transparent border-b border-white/20 text-white focus:outline-none"
                 />
+                <button onClick={() => bumpAllJornadas(1)} className="p-1 bg-black/40 rounded hover:text-white text-gray-400"><Plus size={16} /></button>
+                <button onClick={() => applyAllJornadas(massJornadas)} className="ml-auto text-xs bg-primary/20 text-primary px-3 py-1.5 rounded-lg hover:bg-primary/30">Aplicar</button>
+              </div>
 
-                <IconButton size="small" onClick={() => bumpAllJornadas(1)}>
-                  <Add fontSize="small" />
-                </IconButton>
+              {/* List */}
+              <div className="space-y-2">
+                {[...productosSeleccionados].reverse().map((item, idx) => {
+                  const realIdx = productosSeleccionados.length - 1 - idx;
+                  const j = jornadasMap[realIdx] || 1;
+                  const qty = parseInt(item.cantidad, 10) || 1;
 
-                <Button
-                  size="small"
-                  variant="contained"
-                  onClick={() => applyAllJornadas(massJornadas)}
-                  sx={{ ml: 'auto' }}
-                >
-                  Aplicar a todas
-                </Button>
-              </Box>
+                  return (
+                    <div key={realIdx} className="grid grid-cols-[auto_1fr_auto] gap-4 items-center bg-dark-800 p-3 rounded-xl border border-white/5">
+                      {/* Qty */}
+                      <div className="flex flex-col items-center">
+                        <span className="text-[10px] text-gray-500 mb-1">CANT</span>
+                        <div className="flex items-center bg-black/40 rounded-lg p-1">
+                          <button onClick={() => onDecrementar(realIdx)} disabled={qty <= 1} className="p-1 hover:text-white text-gray-500 disabled:opacity-30"><Minus size={14} /></button>
+                          <span className="w-6 text-center text-sm">{qty}</span>
+                          <button onClick={() => onIncrementar(realIdx)} className="p-1 hover:text-white text-gray-500"><Plus size={14} /></button>
+                        </div>
+                      </div>
 
-              {/* LISTA DETALLADA */}
-              {[...productosSeleccionados].reverse().map((item, idx) => {
-                const realIdx = productosSeleccionados.length - 1 - idx;
-                const j = jornadasMap[realIdx] || 1;
-                const qty = parseInt(item.cantidad, 10) || 1;
+                      {/* Name */}
+                      <div>
+                        <div className="font-bold text-sm text-gray-200">{item.nombre}</div>
+                        <div className="text-xs text-gray-500 line-clamp-1">{item.incluye || 'Sin detalles'}</div>
+                      </div>
 
-                return (
-                  <Box
-                    key={realIdx}
-                    sx={{
-                      display: 'grid',
-                      gridTemplateColumns: 'auto 1fr auto',
-                      columnGap: 2,
-                      alignItems: 'center',
-                      mb: 2,
-                      p: 1,
-                      border: '1px solid #444',
-                      borderRadius: 1,
-                      bgcolor: '#2a2a2a'
-                    }}
-                  >
-                    {/* 1. Cantidad (Izquierda) */}
-                    <Box display="flex" flexDirection="column" alignItems="center">
-                      <Typography variant="caption" color="gray">
-                        Cantidad
-                      </Typography>
-                      <Box
-                        display="flex"
-                        alignItems="center"
-                        sx={{
-                          border: '1px dashed gray',
-                          borderRadius: 1,
-                          p: '2px 4px',
-                          bgcolor: '#2a2a2a'
-                        }}
-                      >
-                        <IconButton
-                          size="small"
-                          onClick={() => onDecrementar(realIdx)}
-                          disabled={qty <= 1}
-                        >
-                          <Remove fontSize="small" />
-                        </IconButton>
+                      {/* Jornadas */}
+                      <div className="flex flex-col items-center">
+                        <span className="text-[10px] text-gray-500 mb-1">JORNADAS</span>
+                        <div className="flex items-center bg-black/40 rounded-lg p-1">
+                          <button onClick={() => setJornadasMap(prev => ({ ...prev, [realIdx]: Math.max(1, j - 1) }))} className="p-1 hover:text-white text-gray-500"><Minus size={14} /></button>
+                          <span className="w-6 text-center text-sm font-bold text-primary">{j}</span>
+                          <button onClick={() => setJornadasMap(prev => ({ ...prev, [realIdx]: j + 1 }))} className="p-1 hover:text-white text-gray-500"><Plus size={14} /></button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
 
-                        <Typography mx={0.5}>{qty}</Typography>
-
-                        <IconButton
-                          size="small"
-                          onClick={() => onIncrementar(realIdx)}
-                        >
-                          <Add fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    </Box>
-
-                    {/* 2. Descripción (Centro) */}
-                    <Box>
-                      <Typography fontWeight={600}>{item.nombre}</Typography>
-                      <Typography variant="body2">
-                        {item.incluye || 'Sin info.'}
-                      </Typography>
-                    </Box>
-
-                    {/* 3. Jornadas (Derecha) */}
-                    <Box display="flex" flexDirection="column" alignItems="center">
-                      <Typography variant="caption" color="gray">
-                        Jornadas
-                      </Typography>
-
-                      <Box
-                        display="flex"
-                        alignItems="center"
-                        sx={{
-                          border: '1px dashed gray',
-                          borderRadius: 1,
-                          p: '2px 4px',
-                          bgcolor: '#2a2a2a'
-                        }}
-                      >
-                        <IconButton
-                          size="small"
-                          onClick={() =>
-                            setJornadasMap(prev => ({
-                              ...prev,
-                              [realIdx]: Math.max(1, j - 1)
-                            }))
-                          }
-                        >
-                          <Remove fontSize="small" />
-                        </IconButton>
-
-                        <Typography mx={0.5}>{j}</Typography>
-
-                        <IconButton
-                          size="small"
-                          onClick={() =>
-                            setJornadasMap(prev => ({
-                              ...prev,
-                              [realIdx]: j + 1
-                            }))
-                          }
-                        >
-                          <Add fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    </Box>
-                  </Box>
-                );
-              })}
-            </>
-          ) : (
-            <Typography>No hay productos seleccionados.</Typography>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button variant="contained" color="success" onClick={() => setOpenIncludes(false)}>
-            Aceptar
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Paper>
+            <div className="mt-4 flex justify-end">
+              <button onClick={() => setOpenIncludes(false)} className="btn-primary py-2 px-6 text-sm">
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

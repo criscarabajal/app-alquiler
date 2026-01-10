@@ -1,20 +1,8 @@
 // src/components/Login.jsx
 import { useState } from "react";
-import {
-  Box,
-  Paper,
-  TextField,
-  Button,
-  Typography,
-  Alert,
-  InputAdornment,
-  IconButton,
-} from "@mui/material";
-
-import VisibilityIcon from "@mui/icons-material/Visibility";
-import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
-
+import { Eye, EyeOff, AlertCircle } from "lucide-react";
 import { intentarLogin } from "../utils/auth";
+import "../index.css"; // Ensure styles are applied if not globally
 
 export default function Login({ onLoginExitoso }) {
   const [usuario, setUsuario] = useState("");
@@ -33,91 +21,69 @@ export default function Login({ onLoginExitoso }) {
     }
 
     setError("");
-    onLoginExitoso(usuario.trim()); // 👈 Envía el usuario al App.jsx
+    onLoginExitoso(usuario.trim());
   };
 
   return (
-    <Box
-      sx={{
-        height: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        bgcolor: "grey.900",
-        p: 2,
-      }}
-    >
-      <Paper
-        elevation={6}
-        sx={{
-          width: "100%",
-          maxWidth: 380,
-          p: 4,
-          borderRadius: 2,
-          bgcolor: "grey.800",
-        }}
-      >
-        <Typography
-          variant="h5"
-          sx={{ textAlign: "center", mb: 3, color: "#fff" }}
-        >
-          Iniciar sesión
-        </Typography>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-dark-900 relative overflow-hidden">
+      {/* Background decorations */}
+      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-primary/20 rounded-full blur-[100px]" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-secondary/20 rounded-full blur-[100px]" />
+
+      <div className="card w-full max-w-md relative z-10 animate-fade-in-up">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-white mb-2">Bienvenido</h1>
+          <p className="text-gray-400">Inicia sesión para continuar</p>
+        </div>
 
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
+          <div className="bg-red-500/10 border border-red-500/20 text-red-200 px-4 py-3 rounded-xl mb-6 flex items-center gap-2">
+            <AlertCircle size={20} />
+            <span>{error}</span>
+          </div>
         )}
 
-        <form onSubmit={handleSubmit}>
-          {/* Usuario */}
-          <TextField
-            label="Usuario"
-            fullWidth
-            margin="normal"
-            value={usuario}
-            onChange={(e) => setUsuario(e.target.value)}
-            sx={{
-              "& .MuiOutlinedInput-input": { color: "#fff" },
-              "& .MuiInputLabel-root": { color: "#ccc" },
-            }}
-          />
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-300 ml-1">Usuario</label>
+            <input
+              type="text"
+              placeholder="Ingresa tu usuario"
+              className="input-field"
+              value={usuario}
+              onChange={(e) => setUsuario(e.target.value)}
+            />
+          </div>
 
-          {/* Contraseña con ojito 👁️ */}
-          <TextField
-            label="Contraseña"
-            type={showPass ? "text" : "password"}
-            fullWidth
-            margin="normal"
-            value={contrasena}
-            onChange={(e) => setContrasena(e.target.value)}
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton onClick={() => setShowPass(!showPass)}>
-                    {showPass ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-            sx={{
-              "& .MuiOutlinedInput-input": { color: "#fff" },
-              "& .MuiInputLabel-root": { color: "#ccc" },
-            }}
-          />
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-300 ml-1">Contraseña</label>
+            <div className="relative">
+              <input
+                type={showPass ? "text" : "password"}
+                placeholder="Ingresa tu contraseña"
+                className="input-field pr-12"
+                value={contrasena}
+                onChange={(e) => setContrasena(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPass(!showPass)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                tabIndex={-1}
+              >
+                {showPass ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
+          </div>
 
-          {/* Botón ingresar */}
-          <Button
-            fullWidth
+          <button
             type="submit"
-            variant="contained"
-            sx={{ mt: 3 }}
+            className="btn-primary w-full mt-4"
           >
             Entrar
-          </Button>
+          </button>
         </form>
-      </Paper>
-    </Box>
+      </div>
+    </div>
   );
 }

@@ -1,28 +1,7 @@
 // src/components/ProductosPOS.jsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  Box,
-  TextField,
-  MenuItem,
-  Typography,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Grid,
-  InputAdornment,
-  IconButton,
-  useTheme,
-  Alert,
-  RadioGroup,
-  FormControlLabel,
-  Radio,
-  useMediaQuery,
-} from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
 import Slider from 'react-slick';
+import { Search, MoreVertical, X, Settings, User, Save, UploadCloud } from 'lucide-react';
 import Carrito from './Carrito';
 import BottomNav from './BottomNav';
 import ListaPedidosModal from './ListaPedidosModal';
@@ -38,38 +17,46 @@ import {
   cargarPedidoFirebase,
 } from "../services/pedidosService";
 
-
 const defaultCats = [
-  'LUCES',
-  'GRIPERIA',
-  'TELAS',
-  'CAMARAS',
-  'LENTES',
-  'BATERIAS',
-  'MONITOREO',
-  'FILTROS',
-  'ACCESORIOS DE CAMARA',
-  'SONIDO',
+  'LUCES', 'GRIPERIA', 'TELAS', 'CAMARAS', 'LENTES',
+  'BATERIAS', 'MONITOREO', 'FILTROS', 'ACCESORIOS DE CAMARA', 'SONIDO',
 ];
 
 export default function ProductosPOS({ usuario }) {
-
   // ===== Descuento =====
   const [discount, setDiscount] = useState('0');
   const [appliedDiscount, setAppliedDiscount] = useState(0);
 
+  // ===== Pedido / separador =====
+  const [pedidoNumero, setPedidoNumero] = useState('');
+  const [grupoActual, setGrupoActual] = useState('');
+
+  // ===== Cliente =====
+  const initialClienteForm = {
+    nombre: '',
+    fechaRetiro: '',
+    fechaDevolucion: '',
+  };
+  const [clienteForm, setClienteForm] = useState(initialClienteForm);
+  const [cliente, setCliente] = useState({});
+
+  // ===== Carrito =====
+  const [carrito, setCarrito] = useState(() =>
+    JSON.parse(localStorage.getItem('carrito') || '[]')
+  );
+  useEffect(() => {
+    localStorage.setItem('carrito', JSON.stringify(carrito));
+  }, [carrito]);
+
+  // ===== Jornadas =====
+  const [jornadasMap, setJornadasMap] = useState({});
+
+  // ===== Logic: Guardar/Cargar =====
   const handleGuardarPedido = async () => {
     const nro = String(pedidoNumero || "").trim();
-    if (!nro) {
-      alert('Ingresá un "Pedido N°" para guardar.');
-      return;
-    }
-    if (carrito.length === 0) {
-      alert("El carrito está vacío.");
-      return;
-    }
+    if (!nro) return alert('Ingresá un "Pedido N°" para guardar.');
+    if (carrito.length === 0) return alert("El carrito está vacío.");
 
-    // Calcular total para guardar
     const totalConJornadas = carrito.reduce((sum, item, idx) => {
       const qty = parseInt(item.cantidad, 10) || 0;
       const j = parseInt(jornadasMap[idx], 10) || 1;
@@ -85,29 +72,24 @@ export default function ProductosPOS({ usuario }) {
         carrito,
         jornadasMap,
         usuario,
-        descuento: appliedDiscount, // Guardamos el valor numérico
-        descuentoLabel: discount,   // Guardamos la selección del UI (opcional)
-        totalFinal,                 // Guardamos el total calculado
+        descuento: appliedDiscount,
+        descuentoLabel: discount,
+        totalFinal,
       });
       alert("Pedido guardado correctamente ☁️");
     } catch (err) {
       console.error(err);
-      alert("Error al guardar el pedido. Ver consola.");
+      alert("Error al guardar el pedido.");
     }
   };
 
   const handleCargarPedido = async () => {
     const nro = String(pedidoNumero || "").trim();
-    if (!nro) {
-      alert('Ingresá un "Pedido N°" para cargar.');
-      return;
-    }
+    if (!nro) return alert('Ingresá un "Pedido N°" para cargar.');
     try {
       const data = await cargarPedidoFirebase(nro);
-      if (!data) {
-        alert("No se encontró ningún pedido con ese número.");
-        return;
-      }
+      if (!data) return alert("No se encontró ningún pedido con ese número.");
+
       setClienteForm(data.cliente || initialClienteForm);
       setCarrito(data.carrito || []);
       setJornadasMap(data.jornadasMap || {});
@@ -117,15 +99,12 @@ export default function ProductosPOS({ usuario }) {
       alert("Pedido cargado correctamente ✅");
     } catch (err) {
       console.error(err);
-      alert("Error al cargar el pedido. Ver consola.");
+      alert("Error al cargar el pedido.");
     }
   };
 
   // ===== Lista de pedidos Modal =====
   const [openListaPedidos, setOpenListaPedidos] = useState(false);
-  const handleOpenListaPedidos = () => setOpenListaPedidos(true);
-  const handleCloseListaPedidos = () => setOpenListaPedidos(false);
-
   const handleSeleccionarPedidoDesdeLista = (pedido) => {
     if (!pedido) return;
     setPedidoNumero(pedido.pedidoNumero || "");
@@ -135,38 +114,7 @@ export default function ProductosPOS({ usuario }) {
     setAppliedDiscount(pedido.descuento || 0);
     setDiscount(pedido.descuentoLabel || '0');
     setGrupoActual("");
-    // alert("Pedido cargado correctamente ✅");
   };
-
-  const theme = useTheme();
-  const isTablet = useMediaQuery(theme.breakpoints.down('lg'));
-  const isSmall = useMediaQuery(theme.breakpoints.down('md'));
-
-  const HEADER = 72;
-  const FOOTER = 72;
-  const CARD_HEIGHT = 180;
-  const ROW_GAP = 16;
-
-  // 🔥 Columnas dinámicas
-  const SLIDES_PER_ROW = isSmall ? 3 : isTablet ? 4 : 5;
-
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: "",
-    severity: "success",
-  });
-
-  const showSnackbar = (message, severity = "info") => {
-    setSnackbar({ open: true, message, severity });
-  };
-
-  const handleCloseSnackbar = () => {
-    setSnackbar((s) => ({ ...s, open: false }));
-  };
-
-  // ===== Pedido / separador =====
-  const [pedidoNumero, setPedidoNumero] = useState('');
-  const [grupoActual, setGrupoActual] = useState('');
 
   // ===== Categorías nav (editables) =====
   const [categoriasNav, setCategoriasNav] = useState(() => {
@@ -178,8 +126,6 @@ export default function ProductosPOS({ usuario }) {
   }, [categoriasNav]);
 
   const [openEditCats, setOpenEditCats] = useState(false);
-  const handleOpenEditCats = () => setOpenEditCats(true);
-  const handleCloseEditCats = () => setOpenEditCats(false);
   const handleCatChange = (idx, val) =>
     setCategoriasNav((c) => {
       const cc = [...c];
@@ -187,7 +133,7 @@ export default function ProductosPOS({ usuario }) {
       return cc;
     });
 
-  // ===== Productos =====
+  // ===== Productos Fetch =====
   const [productosRaw, setProductosRaw] = useState([]);
   const [productos, setProductos] = useState([]);
   const [isSliding, setIsSliding] = useState(false);
@@ -198,21 +144,10 @@ export default function ProductosPOS({ usuario }) {
         setProductosRaw(raw);
         const grouped = raw.reduce((acc, p) => {
           if (!acc[p.nombre]) {
-            acc[p.nombre] = {
-              nombre: p.nombre,
-              precio: p.precio,
-              categoria: p.categoria,
-              subcategoria: p.subcategoria,
-              incluye: p.incluye,
-              seriales: [],
-              valorReposicion: p.valorReposicion,
-            };
+            acc[p.nombre] = { ...p, seriales: [], valorReposicion: p.valorReposicion };
           }
           if (p.serial) acc[p.nombre].seriales.push(p.serial);
-          if (
-            typeof p.valorReposicion === 'number' &&
-            p.valorReposicion > (acc[p.nombre].valorReposicion || 0)
-          ) {
+          if (p.valorReposicion > (acc[p.nombre].valorReposicion || 0)) {
             acc[p.nombre].valorReposicion = p.valorReposicion;
           }
           return acc;
@@ -237,23 +172,24 @@ export default function ProductosPOS({ usuario }) {
     );
   }, [productos, buscar, favorita]);
 
-  // ===== Slider =====
+  // ===== Slider Logic =====
   const [rows, setRows] = useState(1);
   const sliderRef = useRef(null);
-  useEffect(() => setIsSliding(false), []);
-  const calcularFilas = useCallback(() => {
-    // Calculamos el alto disponible restando Header y Footer
-    // En Flexbox el height es manejado dinámicamente, pero para calcular filas necesitamos saber el espacio disponible.
-    // Como el contenedor tiene flex: 1, tomará (window.height - HEADER - FOOTER).
-    const alto = window.innerHeight - HEADER - FOOTER - ROW_GAP;
-    setRows(Math.max(1, Math.floor(alto / (CARD_HEIGHT + ROW_GAP))));
-  }, [HEADER, FOOTER]);
+  const HEADER = 72;
+  const FOOTER = 72;
+  const CARD_HEIGHT = 180;
+  const ROW_GAP = 16;
+  const SLIDES_PER_ROW = window.innerWidth < 768 ? 3 : window.innerWidth < 1024 ? 4 : 5;
 
   useEffect(() => {
+    const calcularFilas = () => {
+      const alto = window.innerHeight - HEADER - FOOTER - ROW_GAP;
+      setRows(Math.max(1, Math.floor(alto / (CARD_HEIGHT + ROW_GAP))));
+    };
     calcularFilas();
     window.addEventListener('resize', calcularFilas);
     return () => window.removeEventListener('resize', calcularFilas);
-  }, [calcularFilas]);
+  }, []);
 
   useEffect(() => {
     sliderRef.current?.slickGoTo(0);
@@ -272,14 +208,7 @@ export default function ProductosPOS({ usuario }) {
     afterChange: () => setIsSliding(false),
   };
 
-  // ===== Carrito =====
-  const [carrito, setCarrito] = useState(() =>
-    JSON.parse(localStorage.getItem('carrito') || '[]')
-  );
-  useEffect(() => {
-    localStorage.setItem('carrito', JSON.stringify(carrito));
-  }, [carrito]);
-
+  // ===== Add to Cart Logic =====
   const agregarAlCarritoConSerial = (prod, serial) => {
     setCarrito((c) => [
       ...c,
@@ -288,12 +217,11 @@ export default function ProductosPOS({ usuario }) {
         serial,
         cantidad: 1,
         grupo: (grupoActual || '').trim(),
-        valorReposicion: prod.valorReposicion,
       },
     ]);
   };
 
-  // ===== Diálogo de serial =====
+  // ===== Serial Dialog =====
   const [openSerialDialog, setOpenSerialDialog] = useState(false);
   const [pendingProduct, setPendingProduct] = useState(null);
   const [selectedSerial, setSelectedSerial] = useState('');
@@ -323,62 +251,18 @@ export default function ProductosPOS({ usuario }) {
     setSelectedSerial('');
   };
 
-  const handleCloseSerialDialog = () => {
-    setOpenSerialDialog(false);
-    setPendingProduct(null);
-    setSelectedSerial('');
-  };
-
-  // ===== Jornadas =====
-  const [jornadasMap, setJornadasMap] = useState({});
-
-  // ===== Cliente =====
-  const initialClienteForm = {
-    nombre: '',
-    fechaRetiro: '',
-    fechaDevolucion: '',
-  };
-  const [openCliente, setOpenCliente] = useState(false);
-  const handleOpenCliente = () => setOpenCliente(true);
-  const handleCloseCliente = () => setOpenCliente(false);
-  const [clienteForm, setClienteForm] = useState(initialClienteForm);
-  const [cliente, setCliente] = useState({});
-  const handleClienteChange = (e) => {
-    const { name, value } = e.target;
-    setClienteForm((prev) => ({ ...prev, [name]: value }));
-  };
-  const handleSaveCliente = () => {
-    setCliente(clienteForm);
-    setOpenCliente(false);
-  };
-
-  // ===== Generar PDFs =====
+  // ===== PDFs =====
   const handleGenerarRemito = () => {
-    const nro = String(pedidoNumero || '').trim();
-    if (!nro) {
-      alert('Ingresá un "Pedido N°" en el carrito para generar el Remito.');
-      return;
-    }
-    const clienteParaPDF = { ...clienteForm, nombre: (clienteForm.nombre || '').trim() };
-    generarRemitoPDF(clienteParaPDF, carrito, nro, nro, jornadasMap);
+    if (!pedidoNumero) return alert('Ingresá un "Pedido N°".');
+    generarRemitoPDF({ ...clienteForm, nombre: clienteForm.nombre?.trim() }, carrito, pedidoNumero, pedidoNumero, jornadasMap);
   };
 
   const handleGenerarPresupuesto = async () => {
-    const nro = String(pedidoNumero || '').trim();
-    if (!nro) {
-      alert('Ingresá un "Pedido N°" en el carrito para generar el Presupuesto.');
-      return;
-    }
-    if (carrito.length === 0) {
-      alert('El carrito está vacío.');
-      return;
-    }
-    const fecha = new Date().toLocaleDateString('es-AR');
-    const clienteParaPDF = { ...clienteForm, nombre: (clienteForm.nombre || '').trim() };
-
+    if (!pedidoNumero) return alert('Ingresá un "Pedido N°".');
+    if (carrito.length === 0) return alert('Carrito vacío.');
     try {
       await guardarPedidoFirebase({
-        pedidoNumero: nro,
+        pedidoNumero: String(pedidoNumero).trim(),
         cliente: clienteForm,
         carrito,
         jornadasMap,
@@ -386,172 +270,80 @@ export default function ProductosPOS({ usuario }) {
         tipo: 'presupuesto',
         fechaCreacion: new Date().toISOString(),
       });
-    } catch (error) {
-      console.error(error);
-      alert('Error al guardar el pedido en Firebase.');
-      return;
+      generarPresupuestoPDF({ ...clienteForm, nombre: clienteForm.nombre?.trim() }, carrito, jornadasMap, new Date().toLocaleDateString('es-AR'), pedidoNumero);
+      setJornadasMap({});
+    } catch (e) {
+      console.error(e);
+      alert('Error guardando presupuesto.');
     }
-
-    alert('Pedido guardado. Generando presupuesto');
-    generarPresupuestoPDF(clienteParaPDF, carrito, jornadasMap, fecha, nro);
-    setJornadasMap({});
   };
 
   const handleGenerarSeguro = () => {
-    const nro = String(pedidoNumero || '').trim();
-    if (!nro) {
-      alert('Ingresá un "Pedido N°" en el carrito para generar el Seguro.');
-      return;
-    }
-    const fecha = new Date().toLocaleDateString('es-AR');
-    const clienteParaPDF = { ...clienteForm, nombre: (clienteForm.nombre || '').trim() };
-    generarSeguroPDF(clienteParaPDF, carrito, fecha, nro, nro, jornadasMap);
+    if (!pedidoNumero) return alert('Ingresá un "Pedido N°".');
+    generarSeguroPDF({ ...clienteForm, nombre: clienteForm.nombre?.trim() }, carrito, new Date().toLocaleDateString('es-AR'), pedidoNumero, pedidoNumero, jornadasMap);
   };
 
   return (
-    <Box
-      sx={{
-        width: '100vw',
-        height: '100vh',
-        overflow: 'hidden',
-        bgcolor: 'grey.900',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
-      {/* HEADER: (Fixed height) */}
-      <Box
-        sx={{
-          height: HEADER,
-          bgcolor: 'grey.900',
-          display: 'flex',
-          alignItems: 'center',
-          px: 2,
-          zIndex: 1200,
-          borderBottom: '1px solid #333'
-        }}
-      >
-        <Box
-          sx={{
-            width: '100%',
-            maxWidth: '1920px',
-            mx: 'auto',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          {/* Izquierda: Nombre + Fechas */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <TextField
-              size="small"
-              variant="outlined"
-              placeholder="Nombre"
-              value={clienteForm.nombre || ''}
-              onChange={(e) =>
-                setClienteForm((prev) => ({ ...prev, nombre: e.target.value }))
-              }
-              InputLabelProps={{ shrink: true }}
-              sx={{
-                minWidth: 140,
-                maxWidth: 220,
-                bgcolor: 'grey.800',
-                borderRadius: 1,
-                '& .MuiOutlinedInput-input': { color: '#fff' },
-                '& .MuiInputLabel-root': { color: '#bbb' },
-              }}
-            />
-            <TextField
-              size="small"
-              variant="outlined"
-              type="datetime-local"
-              label="Retiro"
-              name="fechaRetiro"
-              InputLabelProps={{ shrink: true }}
-              value={clienteForm.fechaRetiro || ''}
-              onChange={handleClienteChange}
-              sx={{
-                minWidth: 170,
-                maxWidth: 210,
-                bgcolor: 'grey.800',
-                borderRadius: 1,
-                '& .MuiOutlinedInput-input': { color: '#fff', fontSize: '0.75rem' },
-                '& .MuiInputLabel-root': { color: '#bbb' },
-              }}
-            />
-            <TextField
-              size="small"
-              variant="outlined"
-              type="datetime-local"
-              label="Devolución"
-              name="fechaDevolucion"
-              InputLabelProps={{ shrink: true }}
-              value={clienteForm.fechaDevolucion || ''}
-              onChange={handleClienteChange}
-              sx={{
-                minWidth: 170,
-                maxWidth: 210,
-                bgcolor: 'grey.800',
-                borderRadius: 1,
-                '& .MuiOutlinedInput-input': { color: '#fff', fontSize: '0.75rem' },
-                '& .MuiInputLabel-root': { color: '#bbb' },
-              }}
-            />
-          </Box>
+    <div className="flex flex-col h-screen bg-dark-900 overflow-hidden text-white font-sans">
+      {/* HEADER */}
+      <div className="flex-none h-[72px] bg-dark-900 border-b border-white/10 flex items-center px-4 z-40 relative">
+        <div className="w-full max-w-[1920px] mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {/* Cliente Inputs */}
+            <div className="relative group">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-hover:text-primary transition-colors" size={16} />
+              <input
+                type="text"
+                placeholder="Nombre Cliente"
+                value={clienteForm.nombre}
+                onChange={e => setClienteForm(prev => ({ ...prev, nombre: e.target.value }))}
+                className="input-field pl-9 py-2 w-48 text-sm"
+              />
+            </div>
+            <div className="flex flex-col">
+              <label className="text-[10px] text-gray-500 ml-1">Retiro</label>
+              <input
+                type="datetime-local"
+                value={clienteForm.fechaRetiro}
+                onChange={e => setClienteForm(prev => ({ ...prev, fechaRetiro: e.target.value }))}
+                className="input-field py-1 px-2 text-xs w-40"
+              />
+            </div>
+            <div className="flex flex-col">
+              <label className="text-[10px] text-gray-500 ml-1">Devolución</label>
+              <input
+                type="datetime-local"
+                value={clienteForm.fechaDevolucion}
+                onChange={e => setClienteForm(prev => ({ ...prev, fechaDevolucion: e.target.value }))}
+                className="input-field py-1 px-2 text-xs w-40"
+              />
+            </div>
+          </div>
 
-          {/* Derecha: Buscador + Logo */}
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <TextField
-              size="small"
-              variant="outlined"
-              placeholder="Buscar"
-              value={buscar}
-              onChange={(e) => setBuscar(e.target.value)}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{
-                width: isTablet ? '160px' : '20vw',
-                minWidth: 150,
-                maxWidth: 350,
-                bgcolor: 'grey.800',
-                borderRadius: 1,
-                marginRight: '3px',
-              }}
-            />
-            <img
-              src={logoImg}
-              alt="logo"
-              style={{ height: '65px', opacity: 0.9 }}
-            />
-          </Box>
-        </Box>
-      </Box>
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+              <input
+                type="text"
+                placeholder="Buscar producto..."
+                value={buscar}
+                onChange={e => setBuscar(e.target.value)}
+                className="input-field pl-10 py-2 w-64"
+              />
+            </div>
+            <img src={logoImg} alt="logo" className="h-12 opacity-90" />
+          </div>
+        </div>
+      </div>
 
-      {/* MAIN CONTENT AREA: Flex Row (Carrito + Productos) */}
-      <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-
-        {/* Carrito: Ancho responsivo */}
-        <Box
-          sx={{
-            width: isSmall ? '40%' : isTablet ? '35%' : '30%',
-            minWidth: '320px',
-            bgcolor: 'grey.900',
-            overflowY: 'auto',
-            borderRight: '1px solid #333',
-            pb: `${FOOTER}px`,
-          }}
-        >
+      {/* MAIN CONTENT */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left: Carrito */}
+        <div className="w-[30%] min-w-[320px] max-w-[450px] bg-dark-900 border-r border-white/10 pb-[72px]">
           <Carrito
             productosSeleccionados={carrito}
             onIncrementar={(i) => {
-              const c = [...carrito];
-              c[i].cantidad++;
-              setCarrito(c);
+              const c = [...carrito]; c[i].cantidad++; setCarrito(c);
             }}
             onDecrementar={(i) => {
               const c = [...carrito];
@@ -564,22 +356,15 @@ export default function ProductosPOS({ usuario }) {
               setCarrito(c);
             }}
             onEliminar={(i) => {
-              const c = [...carrito];
-              c.splice(i, 1);
-              setCarrito(c);
-              setJornadasMap((prev) => {
-                const next = {};
-                Object.keys(prev).forEach((kStr) => {
-                  const k = parseInt(kStr, 10);
-                  if (Number.isNaN(k)) return;
-                  if (k < i) {
-                    next[k] = prev[k];
-                  } else if (k > i) {
-                    next[k - 1] = prev[k];
-                  }
-                });
-                return next;
+              const c = [...carrito]; c.splice(i, 1); setCarrito(c);
+              // Fix mapping logic for jornadas if needed, simplified here
+              const newMap = {};
+              Object.keys(jornadasMap).forEach(k => {
+                const idx = parseInt(k);
+                if (idx < i) newMap[idx] = jornadasMap[idx];
+                else if (idx > i) newMap[idx - 1] = jornadasMap[idx];
               });
+              setJornadasMap(newMap);
             }}
             jornadasMap={jornadasMap}
             setJornadasMap={setJornadasMap}
@@ -597,215 +382,153 @@ export default function ProductosPOS({ usuario }) {
               setDiscount('0');
             }}
           />
-        </Box>
+        </div>
 
-        {/* Productos + filtros: Ocupa el resto */}
-        <Box
-          sx={{
-            flex: 1,
-            bgcolor: 'grey.800',
-            overflowY: 'auto',
-            position: 'relative',
-            pb: `${FOOTER}px`
-          }}
-        >
-          {/* Categorías (Sticky) */}
-          <Box
-            sx={{
-              position: 'sticky',
-              top: 0,
-              zIndex: 1300,
-              px: 1,
-              py: 1,
-              bgcolor: 'grey.800',
-            }}
-          >
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                flexWrap: 'wrap',
-              }}
+        {/* Right: Productos */}
+        <div className="flex-1 bg-dark-800 relative pb-[72px] overflow-hidden flex flex-col">
+          {/* Categories Sticky */}
+          <div className="flex-none p-2 bg-dark-800/95 backdrop-blur z-30 flex items-center gap-2 overflow-x-auto no-scrollbar border-b border-white/5">
+            <button
+              onClick={() => setFavorita('')}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap ${!favorita ? 'bg-primary text-dark-900' : 'bg-white/5 text-gray-300 hover:bg-white/10'}`}
             >
-              <Button
-                size="small"
-                variant={!favorita ? 'contained' : 'outlined'}
-                onClick={() => setFavorita('')}
+              TODAS
+            </button>
+            {categoriasNav.map((cat, i) => (
+              <button
+                key={i}
+                onClick={() => setFavorita(favorita === cat ? '' : cat)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap ${favorita === cat ? 'bg-primary text-dark-900' : 'bg-white/5 text-gray-300 hover:bg-white/10'}`}
               >
-                TODAS
-              </Button>
-              {categoriasNav.map((cat, i) => (
-                <Button
-                  key={i}
-                  size="small"
-                  variant={favorita === cat ? 'contained' : 'outlined'}
-                  onClick={() => setFavorita(favorita === cat ? '' : cat)}
-                >
-                  {cat}
-                </Button>
-              ))}
-              <IconButton
-                size="small"
-                sx={{ ml: 'auto' }}
-                onClick={handleOpenEditCats}
-              >
-                <MoreVertIcon sx={{ color: '#fff' }} />
-              </IconButton>
-            </Box>
-          </Box>
+                {cat}
+              </button>
+            ))}
+            <button onClick={() => setOpenEditCats(true)} className="ml-auto p-2 text-gray-400 hover:text-white">
+              <Settings size={20} />
+            </button>
+          </div>
 
-          {/* Slider de productos */}
-          <Slider ref={sliderRef} {...settings}>
-            {sugerencias.map((p, i) => (
-              <Box key={i} sx={{ px: 1, pb: `${ROW_GAP}px` }}>
-                <Box
-                  onClick={() => handleCardClick(p)}
-                  sx={{
-                    height: CARD_HEIGHT,
-                    bgcolor: 'grey.700',
-                    borderRadius: 1,
-                    p: 1.5,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    cursor: isSliding ? 'not-allowed' : 'pointer',
-                    opacity: isSliding ? 0.6 : 1,
-                    pointerEvents: isSliding ? 'none' : 'auto',
-                    '&:hover': { bgcolor: 'grey.600' },
-                  }}
-                >
-                  <Typography
-                    variant="subtitle1"
-                    sx={{
-                      fontWeight: 600,
-                      lineHeight: 1.2,
-                      whiteSpace: 'normal',
-                      wordBreak: 'break-word',
-                    }}
+          {/* Products Grid/Slider */}
+          <div className="flex-1 overflow-hidden p-4">
+            <Slider ref={sliderRef} {...settings} className="h-full">
+              {sugerencias.map((p, i) => (
+                <div key={i} className="px-2 pb-4 h-full">
+                  <div
+                    onClick={() => handleCardClick(p)}
+                    className={`
+                             h-[180px] bg-dark-700/50 hover:bg-dark-600 border border-white/5 hover:border-primary/30 
+                             rounded-2xl p-4 flex flex-col justify-between transition-all cursor-pointer group
+                             ${isSliding ? 'opacity-50 pointer-events-none' : ''}
+                          `}
                   >
-                    {p.nombre}
-                  </Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 500 }}>
-                    ${(parseFloat(p.precio) || 0).toFixed(2)}
-                  </Typography>
-                </Box>
-              </Box>
-            ))}
-          </Slider>
-        </Box>
-      </Box>
+                    <h3 className="font-bold text-gray-200 group-hover:text-white leading-tight line-clamp-3">
+                      {p.nombre}
+                    </h3>
+                    <div className="flex items-end justify-between">
+                      <div className="text-2xl font-bold text-primary">
+                        ${(parseFloat(p.precio) || 0).toFixed(0)}
+                      </div>
+                      {p.seriales.length > 0 && (
+                        <span className="text-xs bg-black/30 px-2 py-1 rounded text-gray-400">
+                          {p.seriales.length} s/n
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </Slider>
+          </div>
+        </div>
+      </div>
 
-      {/* EDITAR CATEGORÍAS */}
-      <Dialog open={openEditCats} onClose={handleCloseEditCats}>
-        <DialogTitle>Editar categorías</DialogTitle>
-        <DialogContent>
-          {categoriasNav.map((cat, idx) => (
-            <TextField
-              key={idx}
-              fullWidth
-              size="small"
-              variant="outlined"
-              label={`Categoría ${idx + 1}`}
-              value={cat}
-              onChange={(e) => handleCatChange(idx, e.target.value)}
-              sx={{ mb: 2 }}
-            />
-          ))}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseEditCats} variant="contained">
-            Guardar
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* CLIENTE */}
-      <Dialog open={openCliente} onClose={handleCloseCliente} fullWidth maxWidth="md">
-        <DialogTitle>Datos del Cliente</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                size="small"
-                variant="outlined"
-                name="fechaRetiro"
-                label="Fecha Retiro"
-                type="datetime-local"
-                InputLabelProps={{ shrink: true }}
-                value={clienteForm.fechaRetiro || ''}
-                onChange={handleClienteChange}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                size="small"
-                variant="outlined"
-                name="fechaDevolucion"
-                label="Fecha Devolución"
-                type="datetime-local"
-                InputLabelProps={{ shrink: true }}
-                value={clienteForm.fechaDevolucion || ''}
-                onChange={handleClienteChange}
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleSaveCliente} variant="contained">Guardar</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* SERIAL */}
-      <Dialog open={openSerialDialog} onClose={handleCloseSerialDialog}>
-        <DialogTitle>Seleccionar N° de Serie</DialogTitle>
-        <DialogContent dividers>
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>{pendingProduct?.nombre}</Typography>
-          <RadioGroup value={selectedSerial} onChange={(e) => setSelectedSerial(e.target.value)}>
-            {(pendingProduct?.seriales || []).map((s, idx) => (
-              <FormControlLabel key={idx} value={s} control={<Radio />} label={s} />
-            ))}
-          </RadioGroup>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseSerialDialog}>Cancelar</Button>
-          <Button variant="contained" onClick={handleConfirmSerial} disabled={!selectedSerial}>Agregar</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* MODAL LISTA PEDIDOS */}
-      <ListaPedidosModal
-        open={openListaPedidos}
-        onClose={handleCloseListaPedidos}
-        onSelectPedido={handleSeleccionarPedidoDesdeLista}
-      />
-
-      {/* Footer / BottomNav */}
+      {/* FOOTER */}
       <BottomNav
-        onOpenCliente={handleOpenCliente}
+        onOpenCliente={() => { }} // Inputs are in header now
         onGenerarRemito={handleGenerarRemito}
         onGenerarPresupuesto={handleGenerarPresupuesto}
         onGenerarSeguro={handleGenerarSeguro}
         onGuardarPedido={handleGuardarPedido}
         onCargarPedido={handleCargarPedido}
-        onVerTodosPedidos={handleOpenListaPedidos}
+        onVerTodosPedidos={() => setOpenListaPedidos(true)}
         onCancelar={() => {
-          if (window.confirm('¿Cancela pedido?')) {
+          if (window.confirm('¿Borrar todo?')) {
             setCarrito([]);
-            setCliente({});
             setClienteForm(initialClienteForm);
             setPedidoNumero('');
             setJornadasMap({});
-            setGrupoActual('');
-            setAppliedDiscount(0);
-            setDiscount('0');
-            localStorage.clear();
-            window.location.reload();
           }
         }}
       />
-    </Box>
+
+      {/* MODALS */}
+      {/* Edit Categories */}
+      {openEditCats && (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpenEditCats(false)} />
+          <div className="card w-full max-w-md relative z-10 animate-fade-in-up">
+            <h3 className="text-lg font-bold mb-4">Editar Categorías</h3>
+            <div className="max-h-[60vh] overflow-y-auto space-y-2 pr-2">
+              {categoriasNav.map((cat, idx) => (
+                <input
+                  key={idx}
+                  value={cat}
+                  onChange={(e) => handleCatChange(idx, e.target.value)}
+                  className="input-field py-2 text-sm"
+                />
+              ))}
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button onClick={() => setOpenEditCats(false)} className="btn-primary py-2 px-6">Listo</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Serial Selection */}
+      {openSerialDialog && (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpenSerialDialog(false)} />
+          <div className="card w-full max-w-sm relative z-10 animate-fade-in-up">
+            <h3 className="text-lg font-bold mb-1">Seleccionar Serial</h3>
+            <p className="text-sm text-gray-400 mb-4">{pendingProduct?.nombre}</p>
+
+            <div className="space-y-2">
+              {(pendingProduct?.seriales || []).map((s, idx) => (
+                <label key={idx} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 cursor-pointer transition-colors">
+                  <input
+                    type="radio"
+                    name="serial"
+                    value={s}
+                    checked={selectedSerial === s}
+                    onChange={(e) => setSelectedSerial(e.target.value)}
+                    className="w-4 h-4 accent-primary"
+                  />
+                  <span className="text-sm text-gray-200">{s}</span>
+                </label>
+              ))}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={() => setOpenSerialDialog(false)} className="px-4 py-2 text-gray-400 hover:text-white">Cancelar</button>
+              <button
+                onClick={handleConfirmSerial}
+                disabled={!selectedSerial}
+                className="btn-primary py-2 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Agregar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Lista Pedidos */}
+      <ListaPedidosModal
+        open={openListaPedidos}
+        onClose={() => setOpenListaPedidos(false)}
+        onSelectPedido={handleSeleccionarPedidoDesdeLista}
+      />
+    </div>
   );
 }

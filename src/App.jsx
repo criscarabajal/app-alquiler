@@ -54,14 +54,7 @@ export default function App() {
   return (
     <>
       {/* Avatar y nombre arriba a la derecha */}
-      <div
-        style={{
-          position: "fixed",
-          top: 10,
-          right: 10,
-          zIndex: 3000,
-        }}
-      >
+      <div className="fixed top-4 right-4 z-50">
         <HeaderUserMenu
           usuario={usuarioActual}
           onLogout={() => {
