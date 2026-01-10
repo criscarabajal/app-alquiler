@@ -4,6 +4,10 @@ import {
   setDoc,
   getDoc,
   serverTimestamp,
+  collection,
+  query,
+  orderBy,
+  getDocs,
 } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -49,4 +53,19 @@ export async function cargarPedidoFirebase(pedidoNumero) {
 
   if (!snap.exists()) return null;
   return snap.data();
+}
+
+/**
+ * Obtiene todos los pedidos ordenados por fecha de actualización descendente
+ */
+
+export async function obtenerTodosPedidosFirebase() {
+  const colRef = collection(db, COLLECTION);
+  const q = query(colRef, orderBy("actualizadoEn", "desc"));
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  }));
 }
