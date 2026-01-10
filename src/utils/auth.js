@@ -3,8 +3,8 @@
 const AUTH_KEY = "seguiRodandoAuth";
 
 const USERS = [
-  { user: "Pañol", pass: "mati1234" },
-  { user: "veok", pass: "Uep1234" },
+  { user: "cris", pass: "prueba1234" },
+
 ];
 
 // Verifica si ya hay sesión
