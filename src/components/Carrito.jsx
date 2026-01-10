@@ -130,7 +130,7 @@ export default function Carrito({
           }}
         />
 
-        
+
 
         <IconButton size="small" onClick={() => setOpenIncludes(true)}>
           <MoreVert sx={{ color: '#fff' }} />
@@ -223,23 +223,23 @@ export default function Carrito({
           value={discount}
           onChange={e => setDiscount(e.target.value)}
           SelectProps={{
-    MenuProps: {
-      anchorOrigin: {
-        vertical: 'bottom',
-        horizontal: 'left',
-      },
-      transformOrigin: {
-        vertical: 'bottom',
-        horizontal: 'left',
-      },
-      getContentAnchorEl: null, // importante en MUI v4 (ignorado en MUI v5)
-      PaperProps: {
-        sx: {
-          mt: '-8px',     // empuja el menú hacia arriba visualmente
-        }
-      }
-    }
-  }}
+            MenuProps: {
+              anchorOrigin: {
+                vertical: 'bottom',
+                horizontal: 'left',
+              },
+              transformOrigin: {
+                vertical: 'bottom',
+                horizontal: 'left',
+              },
+              getContentAnchorEl: null, // importante en MUI v4 (ignorado en MUI v5)
+              PaperProps: {
+                sx: {
+                  mt: '-8px',     // empuja el menú hacia arriba visualmente
+                }
+              }
+            }
+          }}
           sx={{ bgcolor: '#2c2c2c', borderRadius: 1 }}
         >
           <MenuItem value="0">Ninguno</MenuItem>
@@ -316,13 +316,13 @@ export default function Carrito({
 
               {/* LISTA DETALLADA */}
               {[...productosSeleccionados].reverse().map((item, idx) => {
-
-                const j = jornadasMap[idx] || 1;
+                const realIdx = productosSeleccionados.length - 1 - idx;
+                const j = jornadasMap[realIdx] || 1;
                 const qty = parseInt(item.cantidad, 10) || 1;
 
                 return (
                   <Box
-                    key={idx}
+                    key={realIdx}
                     sx={{
                       display: 'grid',
                       gridTemplateColumns: 'auto 1fr auto',
@@ -352,7 +352,7 @@ export default function Carrito({
                       >
                         <IconButton
                           size="small"
-                          onClick={() => onDecrementar(idx)}
+                          onClick={() => onDecrementar(realIdx)}
                           disabled={qty <= 1}
                         >
                           <Remove fontSize="small" />
@@ -362,7 +362,7 @@ export default function Carrito({
 
                         <IconButton
                           size="small"
-                          onClick={() => onIncrementar(idx)}
+                          onClick={() => onIncrementar(realIdx)}
                         >
                           <Add fontSize="small" />
                         </IconButton>
@@ -398,7 +398,7 @@ export default function Carrito({
                           onClick={() =>
                             setJornadasMap(prev => ({
                               ...prev,
-                              [idx]: Math.max(1, j - 1)
+                              [realIdx]: Math.max(1, j - 1)
                             }))
                           }
                         >
@@ -412,7 +412,7 @@ export default function Carrito({
                           onClick={() =>
                             setJornadasMap(prev => ({
                               ...prev,
-                              [idx]: j + 1
+                              [realIdx]: j + 1
                             }))
                           }
                         >
