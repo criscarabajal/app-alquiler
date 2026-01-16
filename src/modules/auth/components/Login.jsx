@@ -1,8 +1,8 @@
-// src/components/Login.jsx
+// src/modules/auth/components/Login.jsx
 import { useState } from "react";
 import { Eye, EyeOff, AlertCircle } from "lucide-react";
-import { intentarLogin } from "../utils/auth";
-import "../index.css"; // Ensure styles are applied if not globally
+import { login } from "../services/auth.service";
+import "../../../index.css"; // Ensure styles are applied if not globally
 
 export default function Login({ onLoginExitoso }) {
   const [usuario, setUsuario] = useState("");
@@ -13,7 +13,7 @@ export default function Login({ onLoginExitoso }) {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    const resultado = intentarLogin(usuario.trim(), contrasena.trim());
+    const resultado = login(usuario.trim(), contrasena.trim());
 
     if (!resultado.ok) {
       setError(resultado.error);

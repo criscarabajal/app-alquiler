@@ -1,9 +1,9 @@
-// src/utils/generarPresupuesto.js
+// src/modules/documents/services/presupuesto.service.js
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import logoImg from "../assets/logo.png";
-import lochImg from "../assets/loch.jpeg";
-import { formatearFechaHora } from "./Fecha";
+import logoImg from "../../../assets/logo.png";
+import lochImg from "../../../assets/loch.jpeg";
+import { formatearFechaHora } from "../../core/utils/date.util.js";
 
 export function generarNumeroPresupuesto() {
   const ahora = new Date();
@@ -46,7 +46,7 @@ export default function generarPresupuestoPDF(
 
     doc.setFontSize(10);
     const hoy = new Date();
-    const emisionLegible = `${String(hoy.getDate()).padStart(2,"0")}/${String(hoy.getMonth()+1).padStart(2,"0")}/${hoy.getFullYear()}`;
+    const emisionLegible = `${String(hoy.getDate()).padStart(2, "0")}/${String(hoy.getMonth() + 1).padStart(2, "0")}/${hoy.getFullYear()}`;
     doc.text(`Emisión: ${emisionLegible}`, W - M, 75, { align: "right" });
 
     doc.setLineWidth(0.5);
@@ -101,7 +101,7 @@ export default function generarPresupuestoPDF(
     head: [headers],
     body,
     styles: { fontSize: 10, cellPadding: 4 },
-    headStyles: { fillColor: [230,230,230], textColor: [0,0,0] },
+    headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0] },
     theme: "grid",
     pageBreak: "auto",
     didDrawPage: (data) => {

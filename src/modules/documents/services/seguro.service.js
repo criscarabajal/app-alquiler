@@ -1,9 +1,9 @@
-// src/utils/generarSeguro.js
+// src/modules/documents/services/seguro.service.js
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import logoImg from "../assets/logo.png";
-import lochImg from "../assets/loch.jpeg";
-import { formatearFechaHora } from "./Fecha";
+import logoImg from "../../../assets/logo.png";
+import lochImg from "../../../assets/loch.jpeg";
+import { formatearFechaHora } from "../../core/utils/date.util.js";
 
 export function generarNumeroSeguro() {
   const ahora = new Date();
@@ -137,12 +137,12 @@ export default function generarSeguroPDF(
     body: body.map((row) =>
       row._category
         ? [
-            {
-              content: row._category,
-              colSpan: cols.length,
-              styles: { fillColor: [235, 235, 235], fontStyle: "bold" },
-            },
-          ]
+          {
+            content: row._category,
+            colSpan: cols.length,
+            styles: { fillColor: [235, 235, 235], fontStyle: "bold" },
+          },
+        ]
         : cols.map((c) => row[c.dataKey])
     ),
     styles: { fontSize: 8, cellPadding: 2 },

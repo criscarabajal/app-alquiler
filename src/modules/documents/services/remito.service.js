@@ -1,9 +1,9 @@
-// src/utils/generarRemito.js
+// src/modules/documents/services/remito.service.js
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import logoImg from "../assets/logo.png";
-import lochImg from "../assets/loch.jpeg";
-import { formatearFechaHora } from "./Fecha";
+import logoImg from "../../../assets/logo.png";
+import lochImg from "../../../assets/loch.jpeg";
+import { formatearFechaHora } from "../../core/utils/date.util.js";
 
 export function generarNumeroRemito() {
   const ahora = new Date();
@@ -79,7 +79,7 @@ export default function generarRemitoPDF(
   const drawClientData = () => {
     doc.setFontSize(9);
     doc.text(`CLIENTE: ${cliente.nombre || ""} ${cliente.apellido || ""}`, M, 110);
-   
+
     doc.text(
       `RETIRO: ${formatearFechaHora(new Date(cliente.fechaRetiro || ""))}`,
       M,

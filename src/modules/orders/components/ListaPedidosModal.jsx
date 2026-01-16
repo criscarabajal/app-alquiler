@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Search, RefreshCw, Calendar, Loader2 } from 'lucide-react';
-import { obtenerTodosPedidosFirebase } from '../services/pedidosService';
+import { getOrders } from '../services/orders.service';
 
 export default function ListaPedidosModal({ open, onClose, onSelectPedido }) {
     const [pedidos, setPedidos] = useState([]);
@@ -18,7 +18,7 @@ export default function ListaPedidosModal({ open, onClose, onSelectPedido }) {
     const cargarPedidos = async () => {
         setLoading(true);
         try {
-            const data = await obtenerTodosPedidosFirebase();
+            const data = await getOrders();
             setPedidos(data);
         } catch (error) {
             console.error("Error cargando pedidos:", error);

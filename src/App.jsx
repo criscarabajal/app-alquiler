@@ -1,49 +1,37 @@
 // src/App.jsx
 import React, { useState, useEffect } from "react";
-import ProductosPOS from "./components/ProductosPOS";
-import Login from "./components/Login";
-import HeaderUserMenu from "./components/HeaderUserMenu";
-import { estaAutenticado } from "./utils/auth";
+import ProductosPOS from "./modules/products/components/ProductosPOS";
+import Login from "./modules/auth/components/Login";
+import HeaderUserMenu from "./modules/auth/components/HeaderUserMenu";
+import { isAuthenticated, getCurrentUser, setCurrentUser, switchUser, logout } from "./modules/auth";
 
 export default function App() {
   const [autenticado, setAutenticado] = useState(false);
   const [usuarioActual, setUsuarioActual] = useState("");
 
   useEffect(() => {
-    setAutenticado(estaAutenticado());
-
-    const savedUser = localStorage.getItem("currentUser");
+    setAutenticado(isAuthenticated());
+    const savedUser = getCurrentUser();
     if (savedUser) setUsuarioActual(savedUser);
   }, []);
 
   const handleLoginExitoso = (usuario) => {
-    localStorage.setItem("currentUser", usuario);
-
-    // Guardar historial de usuarios logueados
-    const lista = JSON.parse(localStorage.getItem("usuariosLogueados") || "[]");
-    if (!lista.includes(usuario)) {
-      lista.push(usuario);
-      localStorage.setItem("usuariosLogueados", JSON.stringify(lista));
-    }
-
+    setCurrentUser(usuario);
     setUsuarioActual(usuario);
     setAutenticado(true);
   };
 
   const changeUser = () => {
-    const lista = JSON.parse(localStorage.getItem("usuariosLogueados") || "[]");
+    const siguiente = switchUser(usuarioActual);
 
-    if (lista.length < 2) {
-      // Solo un usuario → volver al login
-      localStorage.removeItem("currentUser");
+    if (!siguiente) {
+      // No hay más usuarios - hacer logout
+      logout();
       setAutenticado(false);
       return;
     }
 
-    const pos = lista.indexOf(usuarioActual);
-    const siguiente = lista[(pos + 1) % lista.length]; // ciclo entre usuarios
-
-    localStorage.setItem("currentUser", siguiente);
+    setCurrentUser(siguiente);
     setUsuarioActual(siguiente);
   };
 
@@ -58,7 +46,7 @@ export default function App() {
         <HeaderUserMenu
           usuario={usuarioActual}
           onLogout={() => {
-            localStorage.removeItem("currentUser");
+            logout();
             setAutenticado(false);
           }}
           onChangeUser={changeUser}

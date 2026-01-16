@@ -1,21 +1,16 @@
-// src/components/ProductosPOS.jsx
+// src/modules/products/components/ProductosPOS.jsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Slider from 'react-slick';
 import { Search, MoreVertical, X, Settings, User, Save, UploadCloud } from 'lucide-react';
-import Carrito from './Carrito';
-import BottomNav from './BottomNav';
-import ListaPedidosModal from './ListaPedidosModal';
-import { fetchProductos } from '../utils/fetchProductos';
-import generarRemitoPDF from '../utils/generarRemito';
-import generarPresupuestoPDF from '../utils/generarPresupuesto';
-import generarSeguroPDF from '../utils/generarSeguro';
+import Carrito from '../../orders/components/Carrito';
+import BottomNav from '../../../shared/components/BottomNav';
+import ListaPedidosModal from '../../orders/components/ListaPedidosModal';
+import { getProducts } from '../services/products.service';
+import { generarRemitoPDF, generarPresupuestoPDF, generarSeguroPDF } from '../../documents';
 import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
-import logoImg from '../assets/logo.png';
-import {
-  guardarPedidoFirebase,
-  cargarPedidoFirebase,
-} from "../services/pedidosService";
+import logoImg from '../../../assets/logo.png';
+import { createOrUpdateOrder, getOrder } from '../../orders';
 
 const defaultCats = [
   'LUCES', 'GRIPERIA', 'TELAS', 'CAMARAS', 'LENTES',
@@ -66,7 +61,7 @@ export default function ProductosPOS({ usuario }) {
     const totalFinal = totalConJornadas * (1 - appliedDiscount / 100);
 
     try {
-      await guardarPedidoFirebase({
+      await createOrUpdateOrder({
         pedidoNumero: nro,
         cliente: clienteForm,
         carrito,
@@ -87,7 +82,7 @@ export default function ProductosPOS({ usuario }) {
     const nro = String(pedidoNumero || "").trim();
     if (!nro) return alert('Ingresá un "Pedido N°" para cargar.');
     try {
-      const data = await cargarPedidoFirebase(nro);
+      const data = await getOrder(nro);
       if (!data) return alert("No se encontró ningún pedido con ese número.");
 
       setClienteForm(data.cliente || initialClienteForm);
@@ -139,7 +134,7 @@ export default function ProductosPOS({ usuario }) {
   const [isSliding, setIsSliding] = useState(false);
 
   useEffect(() => {
-    fetchProductos()
+    getProducts()
       .then((raw) => {
         setProductosRaw(raw);
         const grouped = raw.reduce((acc, p) => {
@@ -261,7 +256,7 @@ export default function ProductosPOS({ usuario }) {
     if (!pedidoNumero) return alert('Ingresá un "Pedido N°".');
     if (carrito.length === 0) return alert('Carrito vacío.');
     try {
-      await guardarPedidoFirebase({
+      await createOrUpdateOrder({
         pedidoNumero: String(pedidoNumero).trim(),
         cliente: clienteForm,
         carrito,
