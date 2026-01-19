@@ -43,7 +43,7 @@ export function login(username, password) {
     // Credenciales inválidas
     return {
         ok: false,
-        error: "Escribí bien la contraseña pedazo de manco",
+        error: "Contraseña incorrecta",
     };
 }
 

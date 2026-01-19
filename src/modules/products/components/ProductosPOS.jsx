@@ -132,6 +132,7 @@ export default function ProductosPOS({ usuario }) {
   const [productosRaw, setProductosRaw] = useState([]);
   const [productos, setProductos] = useState([]);
   const [isSliding, setIsSliding] = useState(false);
+  const slidingTimeoutRef = useRef(null);
 
   useEffect(() => {
     getProducts()
@@ -148,8 +149,7 @@ export default function ProductosPOS({ usuario }) {
           return acc;
         }, {});
         setProductos(Object.values(grouped));
-      })
-      .finally(() => setIsSliding(false));
+      });
   }, []);
 
   // ===== Filtros =====
@@ -199,8 +199,20 @@ export default function ProductosPOS({ usuario }) {
     slidesToScroll: 1,
     speed: 600,
     cssEase: 'ease-in-out',
-    beforeChange: (o, n) => o !== n && setIsSliding(true),
-    afterChange: () => setIsSliding(false),
+    beforeChange: (o, n) => {
+      if (o !== n) {
+        setIsSliding(true);
+        // Safety timeout: ensure isSliding resets even if afterChange doesn't fire
+        if (slidingTimeoutRef.current) clearTimeout(slidingTimeoutRef.current);
+        slidingTimeoutRef.current = setTimeout(() => {
+          setIsSliding(false);
+        }, 1000); // 1s is longer than the 600ms animation
+      }
+    },
+    afterChange: () => {
+      if (slidingTimeoutRef.current) clearTimeout(slidingTimeoutRef.current);
+      setIsSliding(false);
+    },
   };
 
   // ===== Add to Cart Logic =====
